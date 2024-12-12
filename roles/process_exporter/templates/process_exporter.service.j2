@@ -1,0 +1,19 @@
+[Unit]
+Description=Prometheus exporter for processors metrics, written in Go with pluggable metric collectors.
+Documentation=https://github.com/ncabatoff/process-exporter
+Wants=network-online.target
+After=network.target
+
+[Service]
+WorkingDirectory={{process_install_root}}
+User={{app_user}}
+Group={{app_group}}
+EnvironmentFile={{process_install_root}}/etc/process.env.yaml
+ExecStart={{process_install_root}}/bin/process-exporter -config.path {{process_install_root}}/etc/process.env.yaml -web.listen-address :{{process_port}}
+Restart=always
+LimitNOFILE=655360
+TimeoutStopSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

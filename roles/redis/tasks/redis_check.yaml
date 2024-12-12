@@ -1,0 +1,19 @@
+- name: check redis_svc step 1
+  run_once: true
+  shell: "systemctl status redis{{redis_standalone_port}}"
+  register: svc_redis0
+  ignore_errors: true
+
+- name: redis check stats
+  debug:
+    msg: "redis svc is ok"
+  when: svc_redis0.rc == 0
+
+- name: redis check stats
+  debug:
+    msg: "redis svc not running"
+  when: svc_redis0.rc != 0
+
+- include: redis_check.yaml
+  when: svc_redis0.rc != 0
+

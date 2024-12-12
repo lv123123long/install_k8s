@@ -1,0 +1,32 @@
+- name: check images exist
+  stat:
+    path: "{{ install_dayu_images_path }}/{{dayu_images_file}}"
+  register: dayu_images_status
+
+- name: get images status
+  debug:
+    msg: "{{dayu_images_status}}"
+
+- name: echo images status
+  debug:
+    msg: "dayu images exist: {{dayu_images_file}}"
+  when: dayu_images_status.stat.exists == true  
+
+- name: echo images status
+  debug:
+    msg: "dayu images not exist"
+  when: dayu_images_status.stat.exists == false
+
+- name: cp dayu images
+  tags: dauy_config
+  copy:
+    src: "files/{{ansible_machine}}/dayu-config/{{dayu_images_file}}"
+    dest: "{{ install_dayu_images_path }}"
+  when: dayu_images_status.stat.exists == false
+
+- name: load dayu images
+  tags: dayu_config
+  command:
+    cmd: "docker load -i {{dayu_images_file}}"
+    chdir: "{{ install_dayu_images_path }}"
+

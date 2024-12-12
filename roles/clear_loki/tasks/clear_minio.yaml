@@ -1,0 +1,21 @@
+- name: stop minio svc
+  service: name=minio state=stopped
+  ignore_errors: true
+
+- name: rm minio svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - /etc/systemd/system/minio.service 
+  ignore_errors: true
+
+- name: rm minio data
+  file:
+    path: "{{minio_install_root}}"
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"

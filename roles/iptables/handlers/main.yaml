@@ -1,0 +1,6 @@
+- name: save iptables
+  shell: iptables-save > /etc/sysconfig/iptables
+  notify: restart iptables
+
+- name: restart iptables
+  service: name=iptables state=restarted

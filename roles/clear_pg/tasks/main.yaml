@@ -1,0 +1,9 @@
+- name: pg type standalone
+  tags: [clear_pg]
+ # when: pg_group_length|int == 1
+  include_tasks: "clear_pg_standalone.yaml"
+
+#- name: pg type cluster
+#  tags: [clear_pg]
+#  when: pg_group_length|int > 1
+#  include_tasks: "clear_pg__cluster.yaml"

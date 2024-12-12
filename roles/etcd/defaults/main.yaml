@@ -1,0 +1,46 @@
+etcd_version: "v3.4.14"
+
+etcd_with_tls: "true"
+etcd_with_basic_auth: false
+
+etcd_install_root: "{{install_root_path}}/etcd"
+
+etcd_service_port: "2381"
+etcd_port_client: "2381"
+etcd_port_peer: "{{ etcd_service_port|int + 1 }}"
+
+etcd_dir_bin: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/bin"
+etcd_dir_conf: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/conf"
+etcd_dir_data: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/data"
+etcd_dir_log: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/log"
+etcd_dir_cert: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/cert"
+etcd_dir_tmp: "{{etcd_install_root}}/etcd_{{ etcd_port_client }}/tmp"
+
+etcd_v2_enable: false
+etcd_service_name: "etcd_{{ etcd_port_client }}"
+etcd_install_user: "{{ app_user }}"
+etcd_install_group: "{{ app_group }}"
+etcd_conf_auto_compaction_retention: "72"
+etcd_conf_etcd_quota_backend_bytes: "5368709120"
+etcd_conf_client_cert_auth: "true"
+etcd_file_client_key: "client-key.pem"
+etcd_file_client_cert: "client.pem"
+etcd_file_peer_key: "peer-key.pem"
+etcd_file_peer_cert: "peer.pem"
+etcd_file_ca_key: "ca-key.pem"
+etcd_file_ca_cert: "ca.pem"
+etcd_ssl_expiry_hour: 87600
+etcd_ssl_ca_organization: system
+etcd_ssl_ca_organization_unit: etcd
+etcd_ssl_ca_city: Beijing
+etcd_ssl_ca_province: Beijing
+etcd_ssl_ca_contry: CN
+etcd_ssl_etcd_contry: CN
+etcd_ssl_etcd_province: Beijing
+etcd_ssl_etcd_organization: system
+etcd_ssl_etcd_organization_unit: etcd
+etcd_ssl_etcd_org_unit: etcd
+etcd_ssl_etcd_org: ""
+etcd_ssl_etcd_city: ""
+
+etcd_interface: "{{ etcd_interface }}"

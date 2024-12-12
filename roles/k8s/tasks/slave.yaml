@@ -1,0 +1,208 @@
+---
+- name: check kubelet status
+  shell: "curl -k https://{{ ansible_default_ipv4.address }}:10250"
+  register: svc_slave_k8s
+  ignore_errors: True
+
+- name: Create tmp directory
+  file:
+    state: directory
+    path: /tmp/kube-install/{{k8s_version}}
+  when: svc_slave_k8s.rc != 0
+
+- name: Create kubelet data folder
+  file: >
+    state=directory
+    path={{kubelet_data_path}}
+  when: svc_slave_k8s.rc != 0
+
+- name: Link kubelet data folder
+  file: >
+    state=link
+    src={{kubelet_data_path}}
+    dest=/var/lib/kubelet
+  when: svc_slave_k8s.rc != 0
+
+- name: Create kubelet log folder
+  file: >
+    state=directory
+    path="{{kubelet_log_path}}"
+  when: svc_slave_k8s.rc != 0
+
+- name: Link kubelet log folder
+  file: >
+    state=link
+    src="{{kubelet_log_path}}"
+    dest=/var/log/kubelet
+  when: svc_slave_k8s.rc != 0
+
+- name: Create pod log folder
+  file: >
+    state=directory
+    path="{{pod_log_path}}"
+  when: svc_slave_k8s.rc != 0
+
+- name: Link kubelet log folder
+  file: >
+    state=link
+    src="{{pod_log_path}}"
+    dest=/var/log/pods
+  when: svc_slave_k8s.rc != 0
+
+- name: Copy RPM packages
+  tags: [rpms]
+  copy:
+    src: "files/{{ansible_machine}}/kube/{{k8s_version}}/rpms/"
+    dest: /tmp/kube-install/{{k8s_version}}/rpms/
+  when:
+    - svc_slave_k8s.rc != 0
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Copy DEB packages
+  tags: [debs]
+  copy:
+    src: "files/{{ansible_machine}}/kube/{{k8s_version}}/debs/"
+    dest: /tmp/kube-install/{{k8s_version}}/debs/
+  when:
+    - svc_slave_k8s.rc != 0
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Install kubernetes RPM
+  tags: [rpms]
+  shell: "yum localinstall -y *.rpm"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/rpms
+  notify:
+    - reload systemd
+  when:
+    - svc_slave_k8s.rc != 0 and internal_install == false
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Install kubernetes DEB
+  tags: [debs]
+  shell: "dpkg -i ./*.deb"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/debs
+  notify:
+    - reload systemd
+  when:
+    - svc_slave_k8s.rc != 0 and internal_install == false
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Install kubernetes repo file
+  when: svc_slave_k8s.rc != 0 and internal_install == true
+  get_url:
+    url: https://rpms.ops.qianxin-inc.cn/rpms/kubernetes/kubernetes.repo
+    dest: /etc/yum.repos.d/kubernetes.repo
+
+- name: Install kubernetes RPM from internal repo
+  when: svc_slave_k8s.rc != 0 and internal_install == true
+  package:
+    name:
+      - kubelet-{{k8s_version}}-0.x86_64
+      - kubeadm-{{k8s_version}}-0.x86_64
+      - kubectl-{{k8s_version}}-0.x86_64
+  notify:
+    - reload systemd
+
+- name: Copy Images
+  tags: [image]
+  when: svc_slave_k8s.rc != 0 and internal_install == false
+  copy:
+    src: files/{{ansible_machine}}/kube/{{k8s_version}}/images/
+    dest: /tmp/kube-install/{{k8s_version}}/images/
+
+- name: Load Images
+  tags: [image]
+  when: svc_slave_k8s.rc != 0 and internal_install == false
+  shell: "for i in `ls *.gz`; do docker load -i $i; done"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/images
+
+- name: Prepare kubeadm
+  tags: [kubeadm]
+  template:
+    src: templates/{{k8s_version}}/kubeadm.conf.j2
+    dest: /etc/kubernetes/kubeadm.conf
+  when: enable_ipv6 == "false"
+
+- name: Prepare kubeadm
+  tags: [kubeadm]
+  template:
+    src: templates/{{k8s_version}}/kubeadm.conf_ipv6.j2
+    dest: /etc/kubernetes/kubeadm.conf
+  when: enable_ipv6 == "true"
+
+- name: set sysctl for ipv6
+  when: enable_ipv6 == "true"
+  sysctl: >
+    name="{{item.name}}"
+    value="{{item.value}}"
+    state=present
+    sysctl_set=yes
+  with_items:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1'}
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1'}
+    - { name: 'net.ipv6.conf.all.disable_ipv6', value: '0'}
+    - { name: 'net.ipv6.conf.default.disable_ipv6',value: '0'}
+  ignore_errors: true
+
+
+- name: ipip for ipv6
+  when: enable_ipv6 == "true"
+  shell: "modprobe ipip"
+
+- name: restart network for ipv6
+  when: enable_ipv6 == "true"
+  service:
+    name: "network"
+    enabled: yes
+    state: restarted
+  ignore_errors: yes
+
+- name: Install new kubeadm
+  copy:
+    src: files/{{ansible_machine}}/kube/{{k8s_version}}/kubeadm
+    dest: /bin/kubeadm
+    mode: 0755
+
+- name: Disable SWAP
+  shell: swapoff -a
+
+- name: Get join commnad
+  tags: [join]
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  shell: kubeadm token create --print-join-command
+  args:
+    chdir: "/etc/kubernetes"
+  run_once: true
+  register: JOIN_COMMAND
+
+- name: Get Node List
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: true
+  tags: [join]
+  shell: "kubectl get nodes --no-headers | awk '{print $1}'"
+  register: node_res
+
+- name: Check Node exist
+  tags: [join]
+  shell: "echo '{{ node_res.stdout }}' | grep {{inventory_hostname}} | wc -l"
+  register: node_status
+
+- name: Join node
+  tags: [join]
+  command: "{{JOIN_COMMAND.stdout}} --node-name={{inventory_hostname}}"
+  when: node_status.stdout == "0"
+ 
+- name: Enable kubelet
+  tags: [kubeadm, join]
+  service:
+    name: kubelet
+    enabled: yes
+    daemon_reload: yes
+

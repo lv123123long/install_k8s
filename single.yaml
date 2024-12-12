@@ -1,0 +1,40 @@
+#ansible:
+#  hosts:
+#    127.0.0.1:
+#      ansible_connection: local
+#localhost:
+#  hosts:
+#    127.0.0.1:
+#      ansible_connection: local
+
+k8s:
+  hosts:
+    node01.example.com:
+      is_master: true
+  vars:
+    k8s_version: v1.19.5
+    pod_subnet: "2.33.0.0/16"
+    service_subnet: "3.44.0.0/16"
+    pod_subnet_ipv6: "fd74:ca9b:0019::/110"
+    service_subnet_ipv6: "fd74:ca9b:0018::/110"
+    kube_config_dir: "/tmp"
+    namespace: "default"
+  customized:
+    service_max_install_count: 3
+    service_min_install_count: 3
+    master_max_install_count: 1
+    master_min_install_count: 1
+    use_master: true
+
+docker:
+  hosts:
+    node01.example.com:
+
+minio:
+  hosts:
+    node01.example.com:
+      minio_init: true
+  vars:
+    minio_service_port: 9345
+    minio_service_user: pfnJjCoizCCMQdL2qa
+    minio_service_password: DZXZiN6JuYh4HFRQRpKpUbcW

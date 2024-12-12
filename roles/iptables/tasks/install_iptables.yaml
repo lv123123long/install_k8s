@@ -1,0 +1,13 @@
+- name: install iptables rpm step 1
+  yum: 
+    name: "{{item}}"
+    state: present
+  with_items:
+    - iptables-services
+    - iptables
+
+- name: enable service
+  service:
+    name: iptables
+    state: started
+    enabled: yes

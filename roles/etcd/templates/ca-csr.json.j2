@@ -1,0 +1,20 @@
+{
+    "CN": "etcd root CA",
+    "ca": {
+        "expiry": "876000h"
+    },
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+	  "C": "{{ssl_ca_contry|default(etcd_ssl_ca_contry)}}",
+	  "ST": "{{ssl_ca_province|default(etcd_ssl_ca_province)}}",
+          "O": "{{ssl_ca_organization|default(etcd_ssl_ca_organization)}}",
+          "OU": "{{ssl_ca_organization_unit|default(etcd_ssl_ca_organization_unit)}}",
+          "L": "{{ssl_ca_city|default(etcd_ssl_ca_city)}}"		
+        }
+    ]
+}
+

@@ -1,0 +1,6 @@
+#files
+infra
+
+##
+scripts/pki/etcd
+/**/.DS_Store

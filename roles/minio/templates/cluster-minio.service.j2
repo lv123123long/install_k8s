@@ -1,0 +1,23 @@
+[Unit]
+Description=minio
+Documentation=https://docs.min.io
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+WorkingDirectory={{minio_install_root}}
+User={{app_user}}
+Group={{app_group}}
+EnvironmentFile={{minio_install_root}}/etc/minio.env
+Environment=MINIO_BROWSER=off
+ExecStart={{minio_install_root}}/bin/minio server $MINIO_OPTS $MINIO_NODES
+Restart=always
+LimitNOFILE=655360
+TimeoutStopSec=infinity
+SendSIGKILL=no
+MemoryLimit={{ memory_limit }}
+CPUQuota={{ cpu_quota }}
+BlockIOWeight={{block_io_weight}}
+
+[Install]
+WantedBy=multi-user.target

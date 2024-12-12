@@ -1,0 +1,12 @@
+- name: Copy Libgomp DEB
+  copy:
+    src: "files/{{ansible_machine}}/libgomp"
+    dest: /tmp
+
+- name: Install Libgomp DEB
+  shell: "dpkg -i ./*.deb"
+  args:
+    chdir: /tmp/libgomp
+
+- name: Clean Tmp
+  shell: "rm -rf /tmp/libgomp"

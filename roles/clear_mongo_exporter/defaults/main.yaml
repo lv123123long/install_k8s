@@ -1,0 +1,1 @@
+install_mongo_exporter_root: "{{install_data_path}}/exporter/mongo_exporter"

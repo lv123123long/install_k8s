@@ -1,0 +1,30 @@
+{
+  "CN": "etcd peer",
+  "hosts": [
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "::",
+    {%for host in groups['etcd']-%}
+    "{{host}}",
+    {% if etcd_interface != '' %}
+    "{{hostvars[host]['ansible_'+etcd_interface].ipv4.address}}"{%if not loop.last%},{%endif%}
+    {%else%}
+    "{{hostvars[host]["ansible_facts"]["default_ipv4"]["address"]}}"{%if not loop.last%},{%endif%}
+    {%endif%}
+    {%endfor-%}
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "{{ssl_etcd_contry|default(etcd_ssl_etcd_contry)}}",
+      "ST": "{{ssl_etcd_province|default(etcd_ssl_etcd_province)}}",
+      "O": "{{ssl_etcd_organization|default(etcd_ssl_etcd_organization)}}",
+      "OU": "{{ssl_etcd_organization_unit|default(etcd_ssl_etcd_organization_unit)}}",
+      "L": "{{ssl_etcd_city|default(etcd_ssl_etcd_city)}}"
+    }
+  ]
+}

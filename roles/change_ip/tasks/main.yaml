@@ -1,0 +1,202 @@
+- name: change host ipaddress
+  debug:
+    msg: "ready to change host new ipaddress"
+
+- name: register first hosts
+  set_fact:
+    hosts: "{{ inventory_hostname }}"
+  when: k8s_handle == "true"
+
+- name: Check locakfile exists
+  stat:
+    path: /root/lockfile
+  register: file_status
+
+- name: check handle count
+  fail: msg="check failed"
+  when: file_status.stat.exists == true
+
+- name: step1-1 dump kubeadm-init.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl -n kube-system get configmap kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' > kubeadm-init.yaml"
+    chdir: "{{ k8s_path }}"
+  ignore_errors: True
+
+- name: step1-2 Define changK8Sip host group
+  add_host:
+    groups:
+      - change_ip
+    name: "{{ hostvars[item][\"newip\"] }}"
+  loop: "{{groups['change_host']|sort}}"
+
+- name: step1-3 add new ip in kubeadm-init.yaml 
+  delegate_to: "{{ hosts }}"
+  lineinfile:
+    dest: "{{ k8s_path }}/kubeadm-init.yaml"
+    line: "  - {{ item }}"
+    insertbefore: 'extraArgs'
+  loop: "{{groups['change_ip']|sort}}"
+  ignore_errors: True
+
+- name: step1-4 print change_ip group
+  debug:
+    msg: "{{ groups.change_ip| sort | unique | list }}"
+
+- name: step2-1 backup etcd file 
+  copy:
+    src: "{{ k8s_path }}/pki"
+    dest: "{{ k8s_path }}/pki.bak"
+    backup: yes
+
+- name: step2-2 backup kubeadm-init.yaml
+  copy:
+    src: "{{ k8s_path }}/kubeadm-init.yaml"
+    dest: "{{ k8s_path }}/kubeadm-init.yaml.bak"
+    backup: yes
+
+- name: step3 delete old apiserverkey 
+  file:
+    path: "{{ k8s_path }}/pki/{{ item }}"
+    state: absent
+  with_items:
+   - apiserver.crt
+   - apiserver.key
+  when: k8s_handle == "true"
+
+- name: step4-1 Generate from new  api-key
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubeadm init phase certs apiserver --config  kubeadm-init.yaml"
+    chdir: "{{ k8s_path }}"
+  ignore_errors: True
+
+- name: step4-2 copy api-key to other host
+  copy:
+    src: "{{ k8s_path }}/pki/{{ item }}"
+    dest: "{{ k8s_path }}/pki/"
+  with_items:
+   - apiserver.crt
+   - apiserver.key
+
+- name: step4-3 check api-key 
+  shell:
+    cmd: "openssl x509 -noout -text -in {{ k8s_path }}/pki/apiserver.crt | grep DNS |egrep -w {{ groups['change_ip'][0] }}"
+  register: check_newip
+
+- name: step4-4 handle cmd to check key value
+  debug: var=check_newip
+#  debug: var=check_newip.stdout_lines
+
+#- block:
+#    - name: check apiserver.crt error
+##      delegate_to: "{{ hosts }}"
+#      debug:
+#        msg: "apiserver.crt have no newip key,please check the config"
+#    - meta: end_play
+#      when: check_newip.rc != 0
+#  when: check_newip.rc != 0
+
+- name: check apiserver.crt success
+  debug:
+    msg: "apiserver.crt have newip key,check success"
+  when: check_newip.rc == 0
+
+- name: step5 update certs
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubeadm init phase upload-certs --upload-certs --config kubeadm-init.yaml"
+  ignore_errors: True
+
+- name: step6-1 create tmp key dir and copy key file
+#  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "mkdir /etc/kubernetes/etcd_cert ; cp -av /data/s/services/etcd/etcd_2381/cert/{ca-key,ca}.pem /etc/kubernetes/etcd_cert ; cp -fr {{ playbook_dir }}/files/x86_64/etcd/ssl/config/{etcd-peer-req-csr.json,ca-config,etcd-client-req-csr.json}  {{ k8s_path }}/etcd_cert/;cp -fr {{ k8s_path }}/etcd_cert  {{ k8s_path }}/etcd_cert.bak`date +\"%Y%m%d-%H%M%S\"`;cp -fr /data/s/services/etcd/etcd_2381  /data/s/services/etcd/etcd_2381.bak`date +\"%Y%m%d-%H%M%S\"`  "
+  ignore_errors: True
+
+- name: step6-2 update etcd json file
+  delegate_to: "{{ hosts }}"
+  lineinfile:
+    dest: "{{ k8s_path }}/etcd_cert/etcd-peer-req-csr.json"
+    line: "    \"{{ item }}\","
+    insertafter: 'host'
+  loop: "{{groups['change_ip']|sort}}"
+  ignore_errors: True
+
+
+- name: step6-3 create new etcd-key
+  shell:
+    cmd: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config -profile=peer etcd-peer-req-csr.json | cfssljson -bare peer && cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config -profile=client etcd-client-req-csr.json | cfssljson -bare client"
+    chdir: "{{ k8s_path }}/etcd_cert"
+  ignore_errors: True
+
+
+- name: step7 stop etcd_2381.service
+  shell:
+    cmd: "systemctl stop kubelet etcd_2381"
+#  ignore_errors: True
+
+- name: step8 backup etcd and pki
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "cp -fr {{ k8s_path }}/pki  {{ k8s_path }}/pki.bak`date +\"%Y%m%d-%H%M%S\"`"
+    #cmd: "cp -fr {{ install_root_path }}/etcd/etcd_2381 {{ install_root_path }}/etcd/etcd_2381.bak`date +\"%Y%m%d-%H%M%S\"` && cp -fr {{ k8s_path }}/pki  {{ k8s_path }}/pki.bak`date +\"%Y%m%d-%H%M%S\"`"
+  ignore_errors: True
+
+- name: step9 sync etcd-key/k8s-key file to all host
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: bsafe
+    group: bsafe
+  with_items:
+   - {src: "{{ k8s_path }}/etcd_cert/client-key.pem", dest: "{{ install_root_path }}/etcd/etcd_2381/cert/" }
+   - {src: "{{ k8s_path }}/etcd_cert/client.pem", dest: "{{ install_root_path }}/etcd/etcd_2381/cert/" }
+   - {src: "{{ k8s_path }}/etcd_cert/peer-key.pem", dest: "{{ install_root_path }}/etcd/etcd_2381/cert/" }
+   - {src: "{{ k8s_path }}/etcd_cert/peer.pem", dest: "{{ install_root_path }}/etcd/etcd_2381/cert/" }
+   - {src: "{{ k8s_path }}/etcd_cert/client-key.pem", dest: "{{ k8s_path }}/pki/etcd/" }
+   - {src: "{{ k8s_path }}/etcd_cert/client.pem", dest: "{{ k8s_path }}/pki/etcd/" }
+
+- name: step10 update etcd.conf and kube-config
+  shell:
+    cmd: "sed  -i \"/listen-peer-urls/s/`hostname -i`/{{ hostvars[inventory_hostname][\"newip\"] }}/g;/listen-client-urls/s/`hostname -i`/{{ hostvars[inventory_hostname][\"newip\"] }}/g\" etcd.conf && sed  -i  \"s/`hostname -i`/{{ hostvars[inventory_hostname][\"newip\"] }}/g\"   /root/.kube/config"
+    chdir: "{{ install_root_path }}/etcd/etcd_2381/conf/"
+
+- name: step11 update all k8s file
+  shell:
+    cmd: "sed  -i  \"s/`hostname -i`/{{ hostvars[inventory_hostname][\"newip\"] }}/g\"   `find /etc/kubernetes -type f` "
+
+#- name: step12 update network ipaddr
+#  shell:
+#    cmd: "sed  -i  \"s/`hostname -i`/{{ hostvars[inventory_hostname][\"newip\"] }}/g\"  ifcfg-{{ etcd_interface }}"
+#    chdir: "{{ network_path }}"
+
+- name: step12 update network ipaddr
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[inventory_hostname][\"oldip\"] }}/{{ hostvars[inventory_hostname][\"newip\"] }}/g;s/NETMASK=.*/NETMASK={{ hostvars[inventory_hostname][\"new_netmask\"] }}/g;s/GATEWAY=.*/GATEWAY={{ hostvars[inventory_hostname][\"new_gateway\"] }}/g\"   ifcfg-{{ etcd_interface }}"
+    chdir: "{{ network_path }}"
+
+- name: setp13 update /etc/hosts
+  lineinfile:
+    dest: "/etc/hosts"
+    regexp: "{{ hostvars[item][iface_name]['ipv4']['address'] }}"
+    line: "{{ hostvars[item][\"newip\"] }}      {{ item }}"
+  loop: "{{groups['change_host']|sort}}"
+
+- name: setp14 create lockfile
+  file:
+    path: "/root/lockfile"
+    state: touch
+
+- name: step15 please ssh to new ip
+  debug:
+    msg: "------please ssh to new ip---------"
+
+- name: step16 restart network
+  service:
+    name: "{{ item }}"
+    state: restarted
+  async: 1
+  poll: 0 
+  with_items:
+   - network

@@ -1,0 +1,22 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+#- name: check pg_exporter_dbup.service
+#  shell: "systemctl status postgres_exporter9187.service"
+#  register: svc_pg_exporter
+#  ignore_errors: true
+
+- name: Install pg_exporter
+  command:
+    cmd: "./dbup prometheus install-postgres-exporter -a {{ansible_default_ipv4.address}}:{{pg_service_port}} -p {{pg_admin_password}} -d {{install_pg_exporter_root}}"
+    chdir: /tmp/oasis-linux-amd64/bin/
+  when: svc_pg_exporter.rc != 0
+  ignore_errors: true

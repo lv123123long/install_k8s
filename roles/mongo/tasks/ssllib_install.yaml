@@ -1,0 +1,7 @@
+- name: Copy lib
+  copy:
+    src: "files/{{ansible_machine}}/openssl10/openssl10lib.tar.gz"
+    dest: /tmp
+
+- name: Install lib
+  shell: "tar -xf /tmp/openssl10lib.tar.gz -C /lib"

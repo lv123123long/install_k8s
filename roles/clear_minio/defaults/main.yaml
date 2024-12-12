@@ -1,0 +1,20 @@
+minio_dirs:
+  - /data01/s/apps/minio
+  - /data01/s/data/minio
+minio_service_port: 9345
+minio_access_key: oZeunXKqdtHmiwQ7
+minio_secret_key: 6MkKhEK8EaNviAYjUCdJEj
+minio_sts_access_key: "{{minio_service_user|default('pfnJjCoizCCMQdL2qa')}}"
+minio_sts_secret_key: "{{minio_service_password|default('DZXZiN6JuYh4HFRQRpKpUbcW')}}"
+minio_etcd_prefix: "/minio/"
+minio_default_bucket: pubdownload
+
+minio_install_root: "{{install_root_path}}/minio"
+minio_pseudo_dir:
+  - "{{minio_install_root}}/data/strip1"
+  - "{{minio_install_root}}/data/strip2"
+  - "{{minio_install_root}}/data/strip3"
+  - "{{minio_install_root}}/data/strip4"
+minio_sts_with_etcd: "true"
+minio_etcd_client_cert: "{{minio_install_root}}/etc/etcd/client.pem"
+minio_etcd_client_cert_key: "{{minio_install_root}}/etc/etcd/client-key.pem"

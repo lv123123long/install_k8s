@@ -1,0 +1,3 @@
+[clickhouse]
+# 设置 redis 安装节点
+localhost

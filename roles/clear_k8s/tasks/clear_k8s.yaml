@@ -1,0 +1,102 @@
+- name: stop k8s svc
+  service: 
+    name: kubelet 
+    state: stopped
+  ignore_errors: true
+
+- name: rm docker image
+  shell: "sudo docker images -qa|xargs docker rmi -f|cat"
+  ignore_errors: true
+
+- name: stop docker svc
+  service: 
+    name: docker
+    state: stopped
+  ignore_errors: true
+
+- name: reset k8s
+  shell: "echo y |kubeadm reset -f |cat"
+  ignore_errors: true
+
+- name: remove k8s rpm 
+  yum:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - kubernetes-cni
+    - k8s-node-1.19.5-1
+    - k8s-server-1.19.5-1
+#  ignore_errors: true
+
+- name: rm flanel net
+  shell: "sudo ip link delete {{ item }}|cat"
+  with_items:
+    - flannel.1
+    - cni0
+    - docker0
+  ignore_errors: true
+
+- name: rm k8s about dir or file
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/kubernetes/
+    - /etc/cni/
+    - /root/.kube/
+    - /opt/cni/
+    - /var/log/pods
+    - /var/log/kubelet
+
+- name: re daemon
+  shell: "sudo systemctl daemon-reload"
+
+
+- name: kill kube port step 1
+  shell:
+    cmd: "sudo pkill {{ item }}|cat"
+  with_items:
+    - kube-apiserver
+    - kube-proxy
+    - kube-scheduler
+    - kube-controller-manager
+    - flanneld
+    - containerd
+
+- name: kill kube port step 2
+  become: yes
+  shell:
+    cmd: "sudo ps -axu|grep {{ item }}|grep -v grep |awk -F ' ' '{print $2}'|xargs sudo kill -9|cat"
+  with_items:
+    - kube-apiserver
+    - kube-proxy
+    - kube-scheduler
+    - kube-controller-manager
+    - flanneld
+
+- name: delete calico step 1
+  become: yes
+  #when: enable_ipv6 == "false"
+  shell: "modprobe -r ipip"
+  ignore_errors: true
+
+- name: delete calico step 2
+  become: yes
+  shell: "ip a|grep cali|awk -F ' |:|@' '{print $3}'|xargs ip link delete|cat"
+  ignore_errors: true
+  when: enable_ipv6 == "true"
+
+- name: delete calico step 3
+  become: yes
+  shell: "for i in `ip a|grep cali|awk -F ' |:|@' '{print $3}'`;do ifconfig $i down;ip link delete $i;done"
+  ignore_errors: true
+  when: enable_ipv6 == "true"
+
+- name: delete flannel step 4
+  become: yes
+  shell: "for i in `ip a|grep veth|awk -F ' |:|@' '{print $3}'`;do ifconfig $i down;ip link delete $i;done"
+  ignore_errors: true
+  when: enable_ipv6 == "false"
+
+- name: re daemon 
+  shell: "sudo systemctl daemon-reload"

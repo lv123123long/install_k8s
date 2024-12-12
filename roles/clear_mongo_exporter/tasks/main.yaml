@@ -1,0 +1,36 @@
+- name: check mongo_exporter_dbup.service
+  shell: "systemctl status mongodb_exporter9216.service"
+  register: svc_mongo_exporter
+  ignore_errors: true
+
+- name: stop mongodb_exporter svc
+  service: name=mongodb_exporter9216 state=stopped
+  ignore_errors: true
+
+- name: rm mongodb_exporter svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - mongodb_exporter9216.service
+
+- name: rm mongodb_exporter svc file
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "/usr/lib/systemd/system/mongodb_exporter9216.service"
+
+- name: rm mongodb_exporter data
+  file:
+    path: "{{install_mongo_exporter_root}}"
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

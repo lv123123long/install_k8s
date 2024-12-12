@@ -1,0 +1,70 @@
+- name: setp1 register first hosts
+  set_fact:
+    hosts: "{{ inventory_hostname }}"
+  when: k8s_handle == "true"
+
+- name: step2 swapoff -a
+  shell:
+    cmd: "swapoff -a"
+  ignore_errors: yes
+
+- name: step3 restart etcd svc
+  service:
+    name: "{{ item }}"
+    state: restarted
+  ignore_errors: yes
+  with_items:
+   - etcd_2381
+   - kubelet
+
+- name: step4  wait 60 sec 
+  pause: seconds=60
+
+- name: step5 dump kube-proxy.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl get cm -n kube-system kube-proxy -o yaml >/root/kube-proxy.yaml"
+  ignore_errors: yes
+
+- name: step6 update kube-proxy.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "sed  -i \"/server/s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\" /root/kube-proxy.yaml"
+    #cmd: "sed  -i \"/server/s/{{ hostvars[inventory_hostname][\"oldip\"] }}/{{ hostvars[inventory_hostname][\"newip\"] }}/g\" /root/kube-proxy.yaml"
+  ignore_errors: yes
+  loop: "{{groups['change_host']}}"
+
+- name: step7 apply new kube-proxy.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl apply -f /root/kube-proxy.yaml"
+    #cmd: "kubectl apply -f /root/kube-proxy.yaml && kubectl delete pod -n kube-system -l k8s-app=kube-proxy"
+  ignore_errors: yes
+
+- name: step8 dump kube-coredns.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl get cm -n kube-system coredns -o yaml >/root/kube-coredns.yaml"
+  ignore_errors: yes
+
+- name: step9 update kube-coredns.yaml
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\" /root/kube-coredns.yaml"
+  ignore_errors: yes
+  loop: "{{groups['change_host']}}"
+
+- name: step10 restart coredns
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl apply -f /root/kube-coredns.yaml"
+    #cmd: "kubectl apply -f /root/kube-coredns.yaml  && kubectl delete pod -n kube-system -l k8s-app=kube-dns && kubectl delete pod -n kube-system -l k8s-app=kube-apiserver"
+  ignore_errors: yes
+
+- name: step11 restart metrics-server
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "kubectl delete pod -n kube-system -l k8s-app==metrics-server"
+  ignore_errors: yes
+
+- include_tasks: reload-pass.yaml

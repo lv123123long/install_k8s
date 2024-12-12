@@ -1,0 +1,50 @@
+- name: Copy oasis
+  #delegate_to: localhost
+  run_once: yes
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: "{{install_tmp_path}}"
+
+- name: Unzip oasis
+  #delegate_to: localhost
+  run_once: yes
+  unarchive:
+    remote_src: yes
+    src: "{{install_tmp_path}}/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: "{{install_tmp_path}}"
+
+- name: Config dbup
+  tags: [template]
+  #delegate_to: localhost
+  run_once: yes
+  template:
+    src: templates/mongodb-replication-deploy.conf.template
+    dest: "{{install_tmp_path}}/oasis/config/mongodb-replication-deploy.conf"
+
+- name: Install mongo replicaset
+  #delegate_to: localhost
+  run_once: yes
+  command:
+    cmd: "./dbup mongodb replication-deploy -c ../config/mongodb-replication-deploy.conf"
+    chdir: "{{install_tmp_path}}/oasis/bin"
+
+- name: Enable mongo
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "mongodb{{mongo_service_port}}"
+  when: dayu_mode != "core"
+
+- name: Disable mongo
+  ignore_errors: True
+  systemd:
+    enabled: false
+    state: stopped
+    name: "{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "mongodb{{mongo_service_port}}"
+  when: dayu_mode == "core"

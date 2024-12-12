@@ -1,0 +1,230 @@
+- name: register hosts
+  tags: xh_single
+  set_fact:
+    xh_hosts: "{{ groups.xh | unique | sort | list }}"
+  when: bm_is_master == "true" 
+
+- name: set /etc/hosts all ip and hostname
+  tags: xh_single
+  lineinfile:
+    dest: /etc/hosts
+    regexp: '.*{{ item }}\s*$'
+    #state: absent
+    line: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }}"
+  with_items: "{{ xh_hosts }}"
+  when: bm_is_master == "true" 
+
+- name: echo add /etc/hosts 
+  tags: xh_single
+  shell: "cat /etc/hosts"
+  when: bm_is_master == "true" 
+
+- name: check xh work dir
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}"
+    state: absent
+    force: yes
+  when: bm_is_master == "true" 
+  
+- name: mkdir xh work dir
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}"
+    state: directory
+  when: bm_is_master == "true" 
+
+- name: Set Centos OS Type
+  set_fact:
+    os_type: "centos"
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Set Ubuntu OS Type
+  set_fact:
+    os_type: "ubuntu"
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Copy BigManager tar
+  tags: xh_single
+  copy:
+    src: "files/{{ansible_machine}}/xh/{{ os_type }}/{{ item }}"
+    dest: "{{ xh_work_dir }}"
+  with_items:
+    - BigManager.tgz
+    - BigdataServices.tgz
+  when: bm_is_master == "true" 
+
+- name: unzip BigManager tar
+  tags: xh_single
+  unarchive:
+    remote_src: yes
+    src: "{{ xh_work_dir }}/BigManager.tgz"
+    dest: "{{ xh_work_dir }}"
+  when: bm_is_master == "true" 
+
+- name: check xh templete
+  tags: xh_single
+  stat: 
+    path: "{{ xh_work_dir }}/BigManager/bin/bm_template_deploy/template/{{ bm_product_line_name }}/{{ xh_install_template }}"
+  register: test_xh_templete_stat
+
+- name: copy excel templete
+  tags: xh_single
+  copy:
+    src: "files/{{ xh_install_template }}"
+    dest: "{{ xh_work_dir }}/BigManager/bin/bm_template_deploy/template/{{ bm_product_line_name }}/"
+  when: bm_is_master == "true" and test_xh_templete_stat.stat.exists == False
+
+- name: set excel mode
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}/BigManager/bin/bm_template_deploy/template/{{ bm_product_line_name }}/{{ xh_install_template }}"
+    mode: 664
+  when: bm_is_master == "true" 
+  
+- name: config bm 
+  tags: xh_single
+  template:
+    src: templates/bm.conf.j2
+    dest: "{{ xh_work_dir }}/BigManager/conf/bm.conf"
+  when: bm_is_master == "true" 
+
+- name: config bm excluded disk
+  tags: xh_single
+  template:
+    src: templates/excluded_disk.ini.j2
+    dest: "{{ xh_work_dir }}/BigManager/conf/excluded_disk.ini"
+  when: bm_is_master == "true" 
+
+- name: if rm  xh .root step 1
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}/BigManager/conf/.root"
+    state: absent
+  when: bm_is_master == "true" and ansible_user != "root"
+
+- name: config xh .root step 2
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}/BigManager/conf/.root"
+    state: touch
+    mode: '0664'
+  when: bm_is_master == "true" and ansible_user != "root"
+
+- name: config xh .root step 3
+  tags: xh_single
+  debug:
+    msg: "{{ ansible_user  }}"
+  when: bm_is_master == "true" and ansible_user != "root"
+
+- name: config xh .root step 4
+  tags: xh_single
+  lineinfile:
+    dest: "{{ xh_work_dir }}/BigManager/conf/.root"
+    line: "{{ ansible_user }}"
+  when: bm_is_master == "true" and ansible_user != "root"
+
+- name: config xh hostlist step 1
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}/BigManager/conf/hostlist"
+    state: absent
+  when: bm_is_master == "true" 
+
+- name: config xh hostlist step 2
+  tags: xh_single
+  file:
+    path: "{{ xh_work_dir }}/BigManager/conf/hostlist"
+    state: touch
+    mode: '0664'
+  when: bm_is_master == "true" 
+
+
+- name: config xh hostlist step 3
+  tags: xh_single
+  debug:
+    msg: "{{ inventory_hostname  }}"
+  when: bm_is_master == "true" 
+
+- name: config xh hostlist step 4 for first line
+  tags: xh_single
+  lineinfile:
+    dest: "{{ xh_work_dir }}/BigManager/conf/hostlist"
+    regexp: '.*{{ item }}\s*$'
+    line: "{{ item }}"
+  with_items: "{{ inventory_hostname }}"
+  when: bm_is_master == "true" 
+
+- name: config xh hostlist step 5 for add other host
+  tags: xh_single
+  lineinfile:
+    dest: "{{ xh_work_dir }}/BigManager/conf/hostlist"
+    regexp: '.*{{ item }}\s*$'
+    line: "{{ item }}"
+  with_items: "{{ xh_hosts }}"
+  when: bm_is_master == "true" 
+
+- include: xh_config.yaml
+  when: xh_config == "true"
+
+- name: cp sh
+  tags: xh_single
+  template:
+    src: templates/sh.sh.j2
+    dest: "{{ xh_work_dir }}/BigManager/bin/sh.sh"
+    mode: 0755
+  when: bm_is_master == "true"
+
+- name: install bm
+  tags: xh_single
+  shell: "sudo sh sh.sh"
+  args:
+    chdir: "{{ xh_work_dir }}/BigManager/bin"
+  when: bm_is_master == "true"
+
+- debug:
+    msg:
+     -  "xh install processing, log is {{ xh_work_dir }}/BigManager/bin/xh_install.log, about 20min"
+
+- name: install bm echo process
+  tags: xh_single
+  shell: "tail -fn 0  --pid=`ps uxh|grep 'sed -e'| grep -v grep|awk -F ' ' '{print $2}' ` xh_install.log| sed -e '/平台完毕/ q; /失败/ q'"
+  register: xh_install_status
+  args:
+    chdir: "{{ xh_work_dir }}/BigManager/bin"
+    #  async: 2700
+    #  poll: 5
+  when: bm_is_master == "true"
+  ignore_errors: true
+
+- debug:
+    msg:
+     -  "{{xh_install_status.stdout_lines}}"
+
+- name: Fetch xh install log
+  tags: [fetch]
+  fetch: 
+    src: "{{ xh_work_dir }}/BigManager/bin/xh_install.log"
+    dest: ./log/ 
+  args:
+    flat: yes
+    backup: yes
+    force: yes
+
+- name: check xh status
+  shell: "curl {{ inventory_hostname }}:8088"
+  register: svc_xh_done
+  when: bm_is_master == "true"
+  ignore_errors: True
+
+- name: echo xh info
+  fail:
+    msg: 
+    - "xh install fail"
+    - "see detail log : log/xh_install.log"
+  when: bm_is_master == "true" and svc_xh_done.rc != 0
+

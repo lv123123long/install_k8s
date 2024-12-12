@@ -1,0 +1,8 @@
+---
+- name: restart minio
+  service:
+    name: minio
+    state: restarted
+
+- name: reload system ca
+  command: update-ca-trust extract

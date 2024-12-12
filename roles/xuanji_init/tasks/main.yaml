@@ -1,0 +1,67 @@
+- name: Create Ck dir
+  tags: xuanji_init
+  file:
+    path: "{{ install_ck_path }}"
+    state: directory
+
+
+- name: Install Ck Client
+  tags: xuanji_init
+  #delegate_to: localhost
+  copy: 
+    src: "files/{{ansible_machine}}/ck/clickhouse-client"
+    dest: "{{ install_ck_path }}"
+    mode: 0777
+
+- name: Copy xinghai Config
+  tags: dayu_config
+  copy:
+    src: "/tmp/current.json"
+    dest: "{{ install_ck_path }}/current.json"
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: Display the xh JSON file content
+  tags: dayu_config
+  shell: "cat {{ install_ck_path }}/current.json"
+  register: result
+
+- name: save the Json data to a Variable as a Fact
+  tags: dayu_config
+  set_fact:
+    jsondata: "{{ result.stdout | from_json }}"
+
+- name: set ck host
+  tags: dayu_config
+  set_fact:
+    ck_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`RAPTOR`].components"
+    jmesquery1: "[? name==`RAPTOR_SERVER`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+ 
+
+- name: Check Ck Service
+  tags: xuanji_init
+  #delegate_to: localhost
+  command:
+    #cmd: "curl {{hostvars[hosts].ansible_default_ipv4.address}}:8123 "
+    cmd: "curl {{ck_hosts[0]}}:8123 "
+  register: ck_svc
+
+- debug: 
+    msg: "ck service not ok"
+  when: ck_svc.rc != 0
+
+- name: create xuanji ck database
+  tags: xuanji_init
+  shell: 
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "create database IF NOT EXISTS {{ item }} on cluster xhraptor" --port 29010 -u admin --host "{{ck_hosts[0]}}"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - xuanji_dwd
+    - uae
+  when: ck_svc.rc == 0

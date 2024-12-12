@@ -1,0 +1,70 @@
+- name: Copy oasis
+  run_once: true
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  run_once: true
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: Config dbup
+  run_once: true
+  tags: [template]
+  template:
+    src: templates/redis-real-cluster-deploy.yaml.template
+    dest: /tmp/oasis-linux-amd64/config/redis-real-cluster-deploy.yaml.template
+
+- name: Config dbup systemd
+  run_once: true
+  tags: [template]
+  template:
+    src: templates/redis.service.template
+    dest: /tmp/oasis-linux-amd64/systemd/redis.service.template
+
+- name: check redis_svc step 1
+  run_once: true
+  shell: "systemctl status redis{{redis_standalone_port}}"
+  register: svc_redis0
+  ignore_errors: true
+
+- name: Install redis
+  run_once: yes
+  command:
+    cmd: "./dbup redis-cluster deploy --config=../config/redis-real-cluster-deploy.yaml.template"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: svc_redis0.rc != 0
+  ignore_errors: true
+
+- name: close aof
+  lineinfile:
+    dest: "{{ redis_install_root }}/{{ item }}/data/redis.conf"
+    regexp: '^appendonly.*$'
+    line: "appendonly no"
+  ignore_errors: true
+  with_items: 
+    - "{{redis_standalone_port}}"
+    - "{{redis_standalone_pseude_port1}}"
+
+# - name: open allkeys-lru
+#   lineinfile:
+#     dest: "{{ redis_install_root }}/{{ item }}/data/redis.conf"
+#     regexp: '^maxmemory-policy.*$'
+#     line: "maxmemory-policy allkeys-lru"
+#   ignore_errors: true
+#   with_items: 
+#     - "{{redis_standalone_port}}"
+#     - "{{redis_standalone_pseude_port1}}"
+
+- name: Enable redis
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "redis{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "{{redis_standalone_port}}"
+    - "{{redis_standalone_pseude_port1}}"

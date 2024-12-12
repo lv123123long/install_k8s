@@ -1,0 +1,18 @@
+[Unit]
+Description=Loki service
+After=network.target
+
+[Service]
+Type=simple
+User={{app_user}}
+LimitNOFILE=655360
+ExecStart={{role_root_path}}/bin/loki-linux-amd64 -config.file {{role_root_path}}/etc/loki-config.yaml
+MemoryLimit={{ memory_limit }}
+CPUQuota={{ cpu_quota }}
+BlockIOWeight={{ block_io_weight }}
+Restart=always
+RestartSec=5
+StartLimitInterval=0
+
+[Install]
+WantedBy=multi-user.target

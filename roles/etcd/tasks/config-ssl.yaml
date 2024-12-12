@@ -1,0 +1,104 @@
+- name: remove etcd ssl dir
+  delegate_to: localhost
+  file:
+    path: files/{{ ansible_machine }}/etcd/ssl
+    state: absent
+  ignore_errors: true
+
+- name: Create temp dir for certificates
+  become: no
+  delegate_to: localhost
+  file: >
+    state=directory
+    path=files/{{ ansible_machine }}/etcd/ssl/{{item}}
+  with_items:
+    - config
+    - certs
+
+- name: Check if we have ca
+  become: no
+  delegate_to: localhost
+  stat:
+    path: "files/{{ ansible_machine }}/etcd/ssl/config/ca-key.pem"
+  register: is_ca_exists
+
+- name: Check if we have peer key
+  become: no
+  delegate_to: localhost
+  stat:
+    path: "files/{{ ansible_machine }}/etcd/ssl/config/peer-key.pem"
+  register: is_peer_key_exists
+
+- name: Check if we have client key
+  become: no
+  delegate_to: localhost
+  stat:
+    path: "files/{{ ansible_machine }}/etcd/ssl/config/client-key.pem"
+  register: is_client_key_exists
+
+- name: Create ssl csr
+  become: no
+  delegate_to: localhost
+  template: >
+    src={{item}}
+    dest=files/{{ ansible_machine }}/etcd/ssl/config/{{'.'.join(item.split(".")[:-1])}}
+  with_items:
+    - ca-config.json
+    - ca-csr.json.j2
+    - etcd-peer-req-csr.json.j2
+    - etcd-client-req-csr.json.j2
+  when: not is_ca_exists.stat.exists and not is_peer_key_exists.stat.exists and not is_client_key_exists.stat.exists
+
+- name: Decompress etcd tarball
+  become: yes
+  delegate_to: localhost
+  copy:
+    src: "files/{{ ansible_machine }}/etcd/{{item}}"
+    dest: "/usr/bin/"
+    owner: root
+    group: root
+    mode: 0755
+  with_items:
+    - cfssljson
+    - cfssl
+
+- name: Gerneate ca Certificate
+  become: no
+  delegate_to: localhost
+  shell: "cfssl gencert -initca ca-csr.json | cfssljson -bare ca"
+  args:
+    chdir: files/{{ ansible_machine }}/etcd/ssl/config
+  when: not is_ca_exists.stat.exists
+
+- name: Gerneate Peer Certificate
+  become: no
+  delegate_to: localhost
+  shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config -profile=peer etcd-peer-req-csr.json | cfssljson -bare peer"
+  args:
+    chdir: files/{{ ansible_machine }}/etcd/ssl/config
+  when: not is_peer_key_exists.stat.exists
+
+- name: Gerneate Client Certificate
+  become: no
+  delegate_to: localhost
+  shell: "cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config -profile=client etcd-client-req-csr.json | cfssljson -bare client"
+  args:
+    chdir: files/{{ ansible_machine }}/etcd/ssl/config
+  when: not is_client_key_exists.stat.exists
+
+- name: Install SSL certificates
+  copy: >
+    src={{item}}
+    dest={{etcd_dir_cert}}
+    mode=0440
+    owner={{etcd_user|default(app_user)}}
+    group={{etcd_group|default(app_group)}}
+  with_items:
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_client_cert}}
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_client_key}}
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_peer_cert}}
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_peer_key}}
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_ca_key}}
+    - files/{{ ansible_machine }}/etcd/ssl/config/{{etcd_file_ca_cert}}
+  notify:
+    - restart etcd

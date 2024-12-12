@@ -1,0 +1,31 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check pgsql
+  #delegate_to: localhost
+  shell : "systemctl status postgres{{pg_service_port}}"
+  register: svc_pgsql
+  ignore_errors: True
+
+- name: Install pgsql
+  command:
+    cmd: "./dbup pgsql install --admin-password '{{pg_admin_password}}' -p '{{pg_service_password}}' -d {{pg_data_dir}} -P {{pg_service_port}} -u {{pg_service_user}} -m {{pg_max_memory}}GB -y"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: svc_pgsql.rc != 0
+
+- name: Enable pgsql
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "postgres{{pg_service_port}}"

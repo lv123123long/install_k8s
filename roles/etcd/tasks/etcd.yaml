@@ -1,0 +1,93 @@
+---
+# tasks file for etcd
+- name: remove etcd ssl
+  delegate_to: localhost
+  file:
+    path: files/{{ ansible_machine }}/etcd/ssl
+    state: absent
+  ignore_errors: true  
+
+- name: Create group
+  group:
+    name: "{{ etcd_install_user }}"
+    system: yes
+    state: present
+
+- name: Create user
+  user:
+    name: "{{ etcd_install_user }}"
+    group: "{{ etcd_install_group }}"
+    system: yes
+    state: present
+
+- name: Create necessary folders
+  file:
+    state: directory
+    recurse: true
+    path: "{{item}}"
+    owner: "{{ etcd_install_user }}"
+    group: "{{ etcd_install_group }}"
+  with_items:
+    - "{{ etcd_dir_bin }}"
+    - "{{ etcd_dir_conf }}"
+    - "{{ etcd_dir_data }}"
+    - "{{ etcd_dir_log }}"
+    - "{{ etcd_dir_cert }}"
+    - "{{ etcd_dir_tmp }}"
+
+- name: Create data dir
+  file:
+    state: directory
+    recurse: true
+    path: "{{item}}"
+    owner: "{{ etcd_install_user }}"
+    group: "{{ etcd_install_group }}"
+    mode:  0700
+  with_items:
+    - "{{ etcd_dir_data }}"
+
+- name: Create tmpdir for deployment
+  file:
+    path: "{{ etcd_dir_tmp }}/etcd-{{ etcd_version }}"
+    state: directory
+
+- name: Decompress tarball
+  unarchive:
+    copy: true
+    src: "files/{{ ansible_machine }}/etcd/etcd-{{ etcd_version }}-linux-amd64.tar.gz"
+    dest: "{{ etcd_dir_tmp }}/etcd-{{ etcd_version }}"
+
+- name: Install binaries
+  copy:
+    remote_src: True
+    src: "{{ etcd_dir_tmp }}/etcd-{{ etcd_version }}/etcd-{{ etcd_version }}-linux-amd64/{{ item }}"
+    dest: "{{ etcd_dir_bin }}/{{ item }}"
+    mode: 0755
+  with_items:
+    - etcd
+    - etcdctl
+
+- name: Install systemd service unit file
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/{{etcd_service_name}}.service
+
+- name: Config etcd
+  template:
+    src: etcd.conf.j2
+    dest: "{{ etcd_dir_conf }}/etcd.conf"
+
+- include: config-ssl.yaml
+  when: etcd_with_tls == "true"
+
+- name: Enable etcd service
+  systemd:
+    daemon_reload: yes
+    enabled: yes
+    name: "{{etcd_service_name}}"
+    state: started
+
+#- name: remove etcd ssl
+#  file:
+#    path: files/{{ ansible_machine }}/etcd/ssl
+#    state: absent

@@ -1,0 +1,32 @@
+- name: stop redis_exporter svc 
+  service: name=redis_exporter9121 state=stopped
+  ignore_errors: true
+
+- name: rm redis_exporter svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - redis_exporter9121.service
+
+- name: rm redis_exporter svc file
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "/usr/lib/systemd/system/redis_exporter9121.service"
+
+- name: rm redis_exporter data
+  file:
+  #  path: /data01/s/services/data/redis
+    path: "{{install_redis_exporter_root}}" 
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

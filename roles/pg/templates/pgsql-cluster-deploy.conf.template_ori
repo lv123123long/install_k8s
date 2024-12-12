@@ -1,0 +1,29 @@
+[server]
+master={{hostvars[groups["pg"][0]]["ansible_facts"]["default_ipv4"]["address"]}}
+slaves={{hostvars[groups["pg"][1]]["ansible_facts"]["default_ipv4"]["address"]}}
+#每个参数项目后必须填写ip地址，用来远程登录，如果留空则忽略，如果留空大于等于2个或者master被留空，那么报错：服务器数 量不足2台无法搭建集群/master节点未配置请进行检查
+ssh-port={{ansible_port}}
+#用于远程登录的ss端口
+ssh-user={{ansible_user}}
+#用于远程登录的账户，比如是root
+ssh-password={{ansible_ssh_pass}}
+#root账户的密码
+
+[pgsql]
+# 超级管理员密码
+admin-password = "{{pg_admin_password}}"
+#监听IP，如果没有特殊要求请勿修改
+bind-ip     = *
+#监听端口，如果没有特殊要求请勿修改
+port        = {{pg_service_port}}
+#数据部署目录，请确认该目录存在，默认为/opt/pgsql+端口号，如无特殊要求请勿修改
+dir         = {{pg_data_dir}}
+#程序用于连接数据库的用户名，默认为pguser+端口号，如无特殊要求请勿修改
+username    = {{pg_service_user}}
+#程序用于连接数据库的用户名的密码（为username参数所设置的用户的密码），密码规则为：16位长度，需要包含数字、大写字母、小写字母，留空即为生成随机密码
+password    = "{{pg_service_password}}"
+#IP白名单，列入白名单的IP地址能够连接该数据库，无特殊要求请勿修改
+address     = 0.0.0.0/0
+#内存配置，建议内存配置不超过系统物理内存总量的50%，避免使用过程中系统物理内存耗尽造成内存溢出，默认为操作系统的50%，请根据实际部署环境进行调整，单位后缀可以为{MB,GB}
+memory-size = "{{pg_max_memory}}GB"
+

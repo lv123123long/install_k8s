@@ -1,0 +1,43 @@
+- name: Apply secret to pull images
+  tags: dayu_config
+  command:
+    cmd: "kubectl apply -f image_secret.yml"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}"
+
+- name: RG pub cert-manager
+  tags: dayu_config
+  command:
+    cmd: "rg -e {{dayu_env}} _cert-manager"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+
+- name: RG pub dy_infra
+  tags: dayu_config
+  command:
+    cmd: "rg -e {{dayu_env}} dy_infra"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+
+- name: RG pub all
+  tags: dayu_config
+  command:
+    cmd: "rg -e {{dayu_env}} {{dayu_mode}}"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+
+- name: RG Wait dayu-init Completed
+  tags: dayu_config
+  ignore_errors: True
+  command:
+    cmd: "rg -e {{dayu_env}},job_wait dy_init"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+  when: dayu_mode == "all" or dayu_mode == "core"
+
+# 临时逻辑，后续修复后可删除
+- name: RG reload some service
+  tags: dayu_config
+  ignore_errors: True
+  when: dayu_mode == "all" or dayu_mode == "core"
+  command:
+    cmd: "kubectl rollout restart deployment {{item}}"
+  with_items:
+    - "uae-engine-server"
+    - "analysis-search"
+    - "uae-alert-server"

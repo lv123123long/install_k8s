@@ -1,0 +1,75 @@
+- name: Install pgsql
+  debug:
+    msg: "install role: pgsql to {{pg_data_dir}}"
+
+- name: echo pg svc mode
+  debug:
+    msg: "install pg svc mode is standalone"
+  when: use_dbup == "true" and (pg_group_length|int == 1)
+
+- name: echo pg svc mode
+  debug:
+    msg: "install pg svc mode is cluster"
+  when: use_dbup == "true" and (pg_group_length|int == 2)
+
+- name: echo pg svc mode
+  debug:
+    msg: "pg need 2 host, please check inventory"
+  when: use_dbup == "true" and (pg_group_length|int > 2)
+
+- name: Get hostvars
+  debug:
+    msg: "{{pg_is_master}}"
+
+- name: Define pg_master host group
+  add_host:
+    groups:
+      - pg_master      
+    name: "{{item}}"
+  when: hostvars[item]['pg_is_master'] == true and (pg_group_length|int == 2)
+  loop: "{{ansible_play_hosts}}"
+
+- name: Define pg_slave nodes
+  add_host:
+    groups:
+      - pg_slave
+    name: "{{item}}"
+  when: hostvars[item]['pg_is_master'] == false and (pg_group_length|int == 2)
+  loop: "{{ansible_play_hosts}}"
+
+- set_fact:
+    pg_master_addr: "{% for host in groups.pg_master %}{{hostvars[host]['ansible_default_ipv4']['address']}}{% endfor %}"
+    pg_slave_addr: "{% for host in groups.pg_slave %}{{hostvars[host]['ansible_default_ipv4']['address']}}{% endfor %}"
+  when: (pg_group_length|int == 2)
+
+- name: echo pg ip
+  debug:
+    msg: 
+      - "pg master is: {{pg_master_addr}}"
+      - "pg slave is: {{pg_slave_addr}}"
+  when: (pg_group_length|int == 2)
+
+- name: Install standalone mode with dbup
+  tags: [install-pg]
+  when: use_dbup == "true" and (pg_group_length|int == 1)
+  include_tasks: "dbup_standalone.yaml"
+
+- name: Install cluster mode with dbup
+  tags: [install-pg]
+  when: use_dbup == "true" and (pg_group_length|int > 1)
+  include_tasks: "dbup_cluster.yaml"
+
+- name: Init skywalking database
+  tags: [install-pg]
+  when: has_skywalking == "true" and pg_is_master == true
+  include: "dbup_init_database.yaml"
+
+#- name: Init Noah user
+#  run_once: yes
+#  delegate_to: "{{ansible_play_hosts_all[0]}}"
+#  when: has_noah == "true"
+#  include: "noah_init.yaml"
+
+- name: init pg database
+  when: has_init_pg_database == "true" and pg_is_master == true
+  include: "pg_database_init.yaml"

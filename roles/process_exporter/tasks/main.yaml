@@ -1,0 +1,44 @@
+- name: Create root folder
+  file:
+    path: "{{process_install_root}}/{{item}}"
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  with_items:
+    - bin
+    - etc
+    - data
+
+- name: Install Process Binary
+  copy:
+    src: files/{{ansible_machine}}/process/process-exporter
+    dest: "{{process_install_root}}/bin/process-exporter"
+    mode: 0755
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Create process config
+  copy: >
+    src=files/process.env.yaml
+    dest="{{process_install_root}}/etc/process.env.yaml"
+    mode=0600
+    owner={{app_user}}
+    group={{app_group}}
+  notify:
+    - restart process_exporter
+
+- name: Create process systemd config
+  template: >
+    src=templates/process_exporter.service.j2
+    dest=/etc/systemd/system/process_exporter.service
+
+- name: Start process_exporter
+  systemd: >
+    name=process_exporter
+    state=started
+    enabled=yes
+    daemon_reload=yes
+
+- name: Wait for process_exporter initialized
+  wait_for: >
+    timeout=30

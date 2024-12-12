@@ -1,0 +1,32 @@
+
+[Unit]
+Description= {{ app_name }} server
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+
+User={{ app_user }}
+Group={{ app_group }}
+
+{% extends "clickhouse_exporter.j2" %}
+
+
+
+
+
+
+
+KillMode=process
+
+TimeoutSec=30
+
+Restart=no
+
+# Do not set any timeout value, so that systemd will not kill postmaster
+# during crash recovery.
+TimeoutSec=0
+
+[Install]
+WantedBy=multi-user.target

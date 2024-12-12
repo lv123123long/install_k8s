@@ -1,0 +1,41 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check redisgraph_svc
+  shell: "systemctl status redis{{redisgraph_standalone_port}}"
+  register: svc_redisgraph
+  ignore_errors: true
+
+
+- name: Install redis without redisgraph
+  when: with_redisgraph != "true" and svc_redisgraph.rc != 0
+  command:
+    cmd: "./dbup redis install -m '{{redisgraph_max_memory}}' -p '{{redisgraph_password}}' -d {{redisgraph_standalone_data_dir}} -P {{redisgraph_standalone_port}} -y"
+    chdir: /tmp/oasis-linux-amd64/bin
+  ignore_errors: true
+
+- name: Install redis with redisgraph
+  when: with_redisgraph == "true" and svc_redisgraph.rc != 0
+  command:
+    cmd: "./dbup redis install -m '{{redisgraph_max_memory}}' -p '{{redisgraph_password}}' -d {{redisgraph_standalone_data_dir}} -P {{redisgraph_standalone_port}} -y -M redisgraph"
+    chdir: /tmp/oasis-linux-amd64/bin
+  ignore_errors: true
+
+- name: Enable redisgraph
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "redis{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "{{redisgraph_standalone_port}}"
+
+

@@ -1,0 +1,4 @@
+- name: reload systemd
+  systemd:
+    name: skywalking
+    daemon_reload: yes

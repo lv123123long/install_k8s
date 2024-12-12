@@ -1,0 +1,26 @@
+- name: check paas pg svc
+  shell: "systemctl status postgres{{pg_service_port}}"
+  register: svc_paas_pg
+  ignore_errors: true
+
+- name: echo paas pg stats
+  debug:
+    msg: "paas pg ok"
+  when: svc_paas_pg.rc == 0
+
+- name: echo paas pg stats
+  debug:
+    msg: "paas pg not running or install"
+  when: svc_paas_pg.rc != 0
+
+- name: echo pg svc mode
+  fail:
+    msg: 
+      - "pg need 1 host to standalone"
+      - "pg need 2 host to master and slave"
+      - "please check inventory"
+  when: (pg_group_length|int > 2)
+
+- include: pg_check.yaml
+  when: svc_paas_pg.rc != 0 
+

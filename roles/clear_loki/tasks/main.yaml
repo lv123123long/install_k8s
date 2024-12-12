@@ -1,0 +1,21 @@
+- name: stop loki svc
+  service: name=loki state=stopped
+  ignore_errors: true
+
+- name: rm loki svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - /etc/systemd/system/loki.service
+  ignore_errors: true
+
+- name: rm loki data
+  file:
+    path: "{{role_root_path}}"
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"

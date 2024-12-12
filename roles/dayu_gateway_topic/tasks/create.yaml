@@ -1,0 +1,147 @@
+- name: Copy xinghai Config
+  tags: dayu_config
+  copy:
+    src: "/tmp/current.json"
+    dest: "{{ install_xh_path }}/current.json"
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: Display the xh JSON file content
+  tags: dayu_config
+  shell: "cat {{ install_xh_path }}/current.json"
+  register: result
+
+- name: save the Json data to a Variable as a Fact
+  tags: dayu_config
+  set_fact:
+    jsondata: "{{ result.stdout | from_json }}"
+
+- name: get kafka host
+  tags: dayu_config
+  set_fact:
+    kafka_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`KAFKA`].components"
+    jmesquery1: "[? name==`QKAFKA`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+
+- name: get zk host
+  tags: dayu_config
+  set_fact:
+    zk_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`ZOOKEEPER`].components"
+    jmesquery1: "[? name==`ZOOKEEPER_SERVER`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+
+- name: create kafka topic 
+  delegate_to: "{{kafka_hosts[0]}}"
+  shell: "{{ install_xh_path }}/kafka/software/kafka/bin/kafka-topics.sh --zookeeper {{zk_hosts[0]}}:2181 --create --topic {{ item }} --partitions 6 --replication-factor 2 --if-not-exists"
+  with_items:
+  - apisec-log-access
+  - apisec-log-control
+  - apisec-log-file-transfer
+  - apisec-log-login
+  - apisec-log-sensitive-access
+  - apisec-log-threat
+  - baimaohui
+  - basp
+  - basp_low
+  - basp_monitor
+  - butian_vuln
+  - cloud_mapping
+  - cloudm
+  - dongao_alert
+  - ds_db_audit
+  - ds_flow
+  - fingerprint
+  - iis_isd_abnormal_connect
+  - iis_isd_abnormal_time_login
+  - iis_isd_abnormal_traffic
+  - iis_isd_asset
+  - iis_isd_asset_mac
+  - iis_isd_asset_risk
+  - iis_isd_asset_state
+  - iis_isd_baseline
+  - iis_isd_dns
+  - iis_isd_flow
+  - iis_isd_ics_audit
+  - iis_isd_ics_event
+  - iis_isd_ics_white
+  - iis_isd_illegal_asset
+  - iis_isd_illegal_incomming
+  - iis_isd_illegal_out
+  - iis_isd_im
+  - iis_isd_login
+  - iis_isd_privileged_account
+  - iis_isd_protocol
+  - iis_isd_remote_access
+  - iis_isd_risk_port
+  - iis_isd_threat
+  - isap_log_ddos_atic
+  - isap_log_nip
+  - isap_log_suricata
+  - isap_log_swaf_alarm
+  - ngsoc_aliyun_waf
+  - ngsoc_origin_alert
+  - ngsoc_threat_alert
+  - nsfocus_test
+  - rasa_vul_topic
+  - secvss_vul_topic
+  - skyeye-safety_device
+  - skyeye-safety_event
+  - skyeye-safety_host
+  - skyeye-safety_virus
+  - skyeye-safety_vul
+  - skyeyecombat
+  - td_skyeye_abnormal
+  - td_skyeye_dhcp
+  - td_skyeye_dns
+  - td_skyeye_file
+  - td_skyeye_ftpop
+  - td_skyeye_icmp
+  - td_skyeye_ids
+  - td_skyeye_ioc
+  - td_skyeye_kerberos
+  - td_skyeye_ldap
+  - td_skyeye_login
+  - td_skyeye_mail
+  - td_skyeye_property
+  - td_skyeye_radius
+  - td_skyeye_sql
+  - td_skyeye_ssl
+  - td_skyeye_tcpflow
+  - td_skyeye_telnetcmd
+  - td_skyeye_udpflow
+  - td_skyeye_viruses
+  - td_skyeye_webattack
+  - td_skyeye_weblog
+  - td_skyeye_webshell
+  - tengxun_alert
+  - ty_abnormal
+  - ty_attack
+  - ty_db
+  - ty_dns
+  - ty_file
+  - ty_ftpop
+  - ty_httpflow
+  - ty_ids
+  - ty_ioc
+  - ty_ldap
+  - ty_login
+  - ty_mail
+  - ty_redirect
+  - ty_skyeye_honeypot
+  - ty_ssl
+  - ty_tcp
+  - ty_telnet
+  - ty_udp
+  - ty_webattack
+  - ty_webshell
+  - xiaoying_full_assets
+  ignore_errors: true

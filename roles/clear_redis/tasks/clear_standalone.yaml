@@ -1,0 +1,26 @@
+- name: stop redis svc
+  service: name=redis{{redis_standalone_port}} state=stopped
+  ignore_errors: true
+
+- name: stop redis svc
+  service: name=redis6379 state=stopped
+  ignore_errors: true
+
+- name: rm redis svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - /usr/lib/systemd/system/redis{{redis_standalone_port}}.service
+    - /usr/lib/systemd/system/redis6379.service
+  ignore_errors: true
+
+- name: rm redis data
+  file:
+    path: /data01/s/services/redis
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"

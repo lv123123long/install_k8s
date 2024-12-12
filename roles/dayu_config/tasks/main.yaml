@@ -1,0 +1,54 @@
+- name: clear dayu-confg dir
+  tags: dayu_config
+  file:
+    state: absent
+    path: "{{install_dayu_config_path}}"
+
+- name: mkdir dayu work dir
+  tags: dayu_config
+  file:
+    state: directory
+    path: "{{ item }}"
+  with_items:
+    - "{{install_dayu_config_path}}"
+    - "{{install_dayu_images_path}}"
+
+- name: init k8s ns 
+  tags: dayu_config
+  command:
+    cmd: "kubectl create namespace {{ dayu_env }}"
+  ignore_errors: true  
+  when: rg_is_exist == "true"
+
+- name: init k8s taint
+  tags: dayu_config
+  command:
+    cmd: "kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master-"
+  ignore_errors: True
+  when: rg_is_exist == "true"
+
+- name: Define pg_master host group
+  tags: dayu_config
+  add_host:
+    groups:
+      - pg_master      
+    name: "{{item}}"
+  when: hostvars[item]['pg_is_master'] == true
+  loop: "{{groups['pg']}}"
+
+- name: Define xh_master host group
+  tags: dayu_config
+  add_host:
+    groups:
+      - xh_master      
+    name: "{{item}}"
+  when: hostvars[item]['bm_is_master'] == "true"
+  loop: "{{groups['xh']}}"
+
+- include: rg_config.yaml
+  when: rg_is_exist == "true"
+
+- include: load_images.yaml
+
+- include: pub.yaml
+  when: rg_is_exist == "true"

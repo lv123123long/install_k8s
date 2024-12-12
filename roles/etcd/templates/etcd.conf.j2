@@ -1,0 +1,160 @@
+{% if etcd_interface != '' %}
+{% set etcd_address=hostvars[inventory_hostname]['ansible_'+etcd_interface].ipv4.address %}
+{% else %}
+{% set etcd_address=hostvars[inventory_hostname]["ansible_facts"]["default_ipv4"]["address"] %}
+{% endif %}
+
+{% if etcd_with_tls == "true" %}
+{% set etcd_scheme_peer="https" %}
+{% set etcd_scheme_client ="https" %}
+{% else %}
+{% set etcd_scheme_peer="http" %}
+{% set etcd_scheme_client="http" %}
+{% endif %}
+# This is the configuration file for the etcd server.
+
+# Human-readable name for this member.
+name: "{{ inventory_hostname }}"
+
+# Path to the data directory.
+data-dir: {{ etcd_dir_data }}
+
+# Path to the dedicated wal directory.
+wal-dir:
+
+# Number of committed transactions to trigger a snapshot to disk.
+snapshot-count: 10000
+
+# Time (in milliseconds) of a heartbeat interval.
+heartbeat-interval: 600
+
+# Time (in milliseconds) for an election to timeout.
+election-timeout: 3000
+
+auto-compaction-retention: "{{ etcd_conf_auto_compaction_retention | default(72) }}"
+
+# Raise alarms when backend size exceeds the given quota. 0 means use the
+# default quota.
+quota-backend-bytes: {{ etcd_quota_backend_bytes | default(5368709120)}}
+
+# List of comma separated URLs to listen on for peer traffic.
+listen-peer-urls: {{ etcd_scheme_peer}}://{{ etcd_address }}:{{etcd_port_peer | default(2380) }}
+
+# List of comma separated URLs to listen on for client traffic.
+listen-client-urls: http://localhost:{{etcd_port_client | default(2379) }},{{ etcd_scheme_client }}://{{ etcd_address }}:{{ etcd_port_client | default(2379)}}
+
+# Maximum number of snapshot files to retain (0 is unlimited).
+max-snapshots: 5
+
+# Maximum number of wal files to retain (0 is unlimited).
+max-wals: 3
+
+# Comma-separated white list of origins for CORS (cross-origin resource sharing).
+cors:
+
+# List of this member's peer URLs to advertise to the rest of the cluster.
+# The URLs needed to be a comma-separated list.
+initial-advertise-peer-urls: {{ etcd_scheme_peer }}://{{ inventory_hostname }}:{{etcd_port_peer | default(2380) }}
+
+# List of this member's client URLs to advertise to the public.
+# The URLs needed to be a comma-separated list.
+advertise-client-urls: {{ etcd_scheme_client }}://{{ inventory_hostname }}:{{ etcd_port_client | default(2379)}}
+
+# Discovery URL used to bootstrap the cluster.
+discovery:
+
+# Valid values include 'exit', 'proxy'
+discovery-fallback: 'proxy'
+
+# HTTP proxy to use for traffic to discovery service.
+discovery-proxy:
+
+# DNS domain used to bootstrap initial cluster.
+discovery-srv:
+
+# Initial cluster configuration for bootstrapping.
+initial-cluster: "{% for host in groups['etcd'] %}
+{{hostvars[host]['inventory_hostname']}}={{ etcd_scheme_peer }}://{{host}}:{{ etcd_port_peer | default(2380) }}{% if not loop.last %},{% endif %}
+{% endfor %}"
+
+# Initial cluster token for the etcd cluster during bootstrap.
+initial-cluster-token: 'etcd-cluster'
+
+# Initial cluster state ('new' or 'existing').
+initial-cluster-state: 'new'
+
+# Reject reconfiguration requests that would cause quorum loss.
+strict-reconfig-check: false
+
+# Accept etcd V2 client requests
+enable-v2: {{etcd_v2_enable|default(false)}}
+
+# Valid values include 'on', 'readonly', 'off'
+proxy: 'off'
+
+# Time (in milliseconds) an endpoint will be held in a failed state.
+proxy-failure-wait: 5000
+
+# Time (in milliseconds) of the endpoints refresh interval.
+proxy-refresh-interval: 30000
+
+# Time (in milliseconds) for a dial to timeout.
+proxy-dial-timeout: 1000
+
+# Time (in milliseconds) for a write to timeout.
+proxy-write-timeout: 5000
+
+# Time (in milliseconds) for a read to timeout.
+proxy-read-timeout: 0
+
+{% if etcd_scheme_client == 'https' %}
+client-transport-security:
+  # DEPRECATED: Path to the client server TLS CA file.
+  ca-file:
+
+  # Path to the client server TLS cert file.
+  cert-file: {{ etcd_dir_cert }}/{{ etcd_file_peer_cert }}
+
+  # Path to the client server TLS key file.
+  key-file: {{ etcd_dir_cert }}/{{ etcd_file_peer_key }}
+
+  # Enable client cert authentication.
+  client-cert-auth: {{ etcd_conf_client_cert_auth }}
+
+  # Path to the client server TLS trusted CA key file.
+  trusted-ca-file: {{ etcd_dir_cert }}/{{ etcd_file_ca_cert }}
+
+  # Client TLS using generated certificates
+  auto-tls: false
+{% endif %}
+
+{% if etcd_scheme_peer == 'https' %}
+peer-transport-security:
+  # DEPRECATED: Path to the peer server TLS CA file.
+  ca-file:
+
+  # Path to the peer server TLS cert file.
+  cert-file: {{ etcd_dir_cert }}/{{ etcd_file_peer_cert }}
+
+  # Path to the peer server TLS key file.
+  key-file: {{ etcd_dir_cert }}/{{ etcd_file_peer_key }}
+
+  # Enable peer client cert authentication.
+  client-cert-auth: {{ etcd_conf_client_cert_auth }}
+
+
+  # Path to the peer server TLS trusted CA key file.
+  trusted-ca-file: {{ etcd_dir_cert }}/{{ etcd_file_ca_cert }}
+
+  # Peer TLS using generated certificates.
+  auto-tls: false
+{% endif %}
+
+# Enable debug-level logging for etcd.
+debug: false
+
+# Specify a particular log level for each etcd package (eg: 'etcdmain=CRITICAL,etcdserver=DEBUG'.
+log-package-levels:
+
+# Force to create a new one member cluster.
+force-new-cluster: false

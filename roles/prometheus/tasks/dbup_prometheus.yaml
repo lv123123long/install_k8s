@@ -1,0 +1,29 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check prometheus
+  delegate_to: localhost
+  command: "systemctl status prometheus9090"
+  register: pro_svc
+  ignore_errors: true
+
+- name: Install Prometheus and Grafana
+  command:
+    cmd: "./dbup_linux_amd64 prometheus install -d {{prometheus_install_root}}"
+    chdir: /tmp/oasis/bin/
+  when: pro_svc.rc != 0
+
+- name: stop pro
+  command:
+    cmd: "systemctl stop prometheus9090"
+- name: stop grafana
+  command:
+    cmd: "systemctl stop grafana-server"

@@ -1,0 +1,100 @@
+- name: Create Ck dir
+  tags: xuanji
+  file:
+    path: "{{ install_ck_path }}"
+    state: directory
+
+
+- name: Install Ck Client
+  tags: xuanji
+  #delegate_to: localhost
+  copy: 
+    src: "files/{{ansible_machine}}/ck/clickhouse-client"
+    dest: "{{ install_ck_path }}"
+    mode: 0777
+ 
+- name: Choose xh host
+  tags: xuanji
+  set_fact:
+    xh_hosts: "{{ groups.xh | unique | list }}" 
+
+- name: Check Ck Service
+  tags: xuanji
+  #delegate_to: localhost
+  command:
+    #cmd: "curl {{hostvars[hosts].ansible_default_ipv4.address}}:8123 "
+    cmd: "curl {{hostvars[inventory_hostname].ansible_default_ipv4.address}}:8123 "
+  register: ck_svc
+
+- debug: 
+    msg: "ck service not ok"
+  when: ck_svc.rc != 0
+
+- name: Check xuanji ck database
+  tags: xuanji
+  shell:
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "select count(*) from system.databases where name='xuanji_dwd';" --port 29010 -u admin --host "{{hostvars[inventory_hostname].ansible_default_ipv4.address}}"
+    chdir: "{{ install_ck_path }}"
+  register: xj_db_exist
+  when: ck_svc.rc == 0 
+
+- name: Check xuanji ck tables
+  tags: xuanji
+  shell:
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "select count(*) from system.tables where database='xuanji_dwd';" --port 29010 -u admin --host "{{hostvars[inventory_hostname].ansible_default_ipv4.address}}"
+    chdir: "{{ install_ck_path }}"
+  register: xj_tb_count
+  when: ck_svc.rc == 0 
+
+- name: create xuanji ck database
+  tags: xuanji
+  shell: 
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "create database IF NOT EXISTS {{ item }} on cluster xhraptor" --port 29010 -u admin "{{hostvars[inventory_hostname].ansible_default_ipv4.address}}"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - xuanji_dwd
+    - uae
+  when: xj_db_exist.rc != 0
+
+- name: prepare ck dwd data 1
+  tags: xuanji
+  copy:
+    src: files/{{ansible_machine}}/dayu-config/{{item}}
+    dest: "{{ install_ck_path }}"
+  with_items:
+    - dwd_knowledge_common_vuln.CSV.gz
+    - dwd_knowledge_ip2geo.CSV.gz
+    - dwd_knowledge_ip2geo_merge.CSV.gz
+    - dwd_knowledge_nox_vuln_rating.CSV.gz
+    - dwd_knowledge_nox_vuln_residence.CSV.gz 
+    - dwd_knowledge_qvd_vuln.CSV.gz
+    - dwd_knowledge_vuln_cpe.CSV.gz
+
+- name: prepare ck dwd data 2
+  tags: xuanji
+  shell: 
+    cmd: gunzip {{item}}
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - dwd_knowledge_common_vuln.CSV.gz
+    - dwd_knowledge_ip2geo.CSV.gz
+    - dwd_knowledge_ip2geo_merge.CSV.gz
+    - dwd_knowledge_nox_vuln_rating.CSV.gz
+    - dwd_knowledge_nox_vuln_residence.CSV.gz 
+    - dwd_knowledge_qvd_vuln.CSV.gz
+    - dwd_knowledge_vuln_cpe.CSV.gz
+
+- name: init xuanji ck database
+  tags: xuanji
+  shell: 
+    cmd: ./clickhouse-client --port 29010 -u admin --host "{{hostvars[inventory_hostname].ansible_default_ipv4.address}}"  --password Dly9DvXcAT -q "insert into xuanji_dwd.{{item}} format CSV" < {{item}}.CSV 
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - dwd_knowledge_common_vuln
+    - dwd_knowledge_ip2geo
+    - dwd_knowledge_ip2geo_merge
+    - dwd_knowledge_nox_vuln_rating
+    - dwd_knowledge_nox_vuln_residence
+    - dwd_knowledge_qvd_vuln
+    - dwd_knowledge_vuln_cpe
+  when: xj_tb_count.stdout == "742"

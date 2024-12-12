@@ -1,0 +1,126 @@
+---
+- hosts: localhost
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: show start time
+      debug:
+        msg: "{{ansible_date_time}}"
+
+- hosts: all
+  gather_facts: yes
+  become: yes
+  tags:
+    - init
+    - init-system
+    - paas
+
+  roles:
+    - init-system
+
+- hosts: minio
+  gather_facts: yes
+  become: yes
+  tags:
+    - minio
+    - paas
+
+  roles:
+    - role: minio
+
+- hosts: k8s
+  gather_facts: false
+  become: yes
+  tags:
+    - k8s
+    - master
+    - slave
+    - kubelet
+    - paas
+
+  tasks:
+    - name: Get hostvars
+      debug:
+        msg: "{{is_master}}"
+
+    - name: Define k8s_master host group
+      add_host:
+        groups:
+          - etcd
+          - k8s_master
+        name: "{{item}}"
+      when: hostvars[item]['is_master'] == true
+      loop: "{{ansible_play_hosts}}"
+
+    - name: Define k8s_slave nodes
+      add_host:
+        groups:
+          - k8s_slave
+        name: "{{item}}"
+      when: hostvars[item]['is_master'] == false
+      loop: "{{ansible_play_hosts}}"
+
+- hosts: k8s_master
+  become: yes
+  tags:
+    - k8s
+    - master
+    - paas
+
+  roles:
+    - role: init-system
+      tags:
+        - init
+        - paas
+
+    - role: etcd
+      tags:
+        - etcd
+        - paas
+
+    - role: docker
+      tags:
+        - docker
+        - paas
+
+    - role: k8s
+      vars:
+        k8s_with_ingress: "true"
+      tags:
+        - k8s
+        - paas
+
+- hosts: k8s_slave
+  become: yes
+  tags:
+    - k8s
+    - slave
+    - kubelet
+    - paas
+  vars:
+    etcd_service_port: "2381"
+
+  roles:
+    - role: init-system
+      tags:
+        - init
+        - paas
+
+    - role: docker
+      tags:
+        - docker
+        - paas
+
+    - role: k8s
+      tags:
+        - k8s
+        - paas
+
+- hosts: localhost
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: show end time
+      debug:
+        msg: "{{ansible_date_time}}"
+

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export xuanji_sql=$1
+
+PGPASSWORD='{{ hostvars[groups['pg_master'][0]].pg_admin_password }}' {{install_root_path}}/pgsql/server/bin/psql -U postgres -p {{ hostvars[groups['pg_master'][0]].pg_service_port }} -d xuanji -f $xuanji_sql

@@ -1,0 +1,27 @@
+{
+    "CN": "etcd",
+    "hosts": [
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "::",
+        "yace03v.tq.zzt.qianxin-inc.cn",
+                "10.252.53.115"
+                ,        "yace04v.tq.zzt.qianxin-inc.cn",
+                "10.252.53.123"
+                ,        "yace05v.tq.zzt.qianxin-inc.cn",
+                "10.252.53.126"
+                        ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "etcd server",
+            "L": "etcd server",
+            "ST": "etcd server"
+        }
+    ]
+}
+

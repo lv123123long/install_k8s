@@ -1,0 +1,42 @@
+- name: check krb5.keytab
+  tags: xh
+  stat: 
+    path: "/etc/krb5.keytab"
+  register: keytab_stat
+
+- name: backup krb5.keytab
+  tags: xh
+  shell: "cp /etc/krb5.keytab /tmp/krb5.keytab"
+  when: keytab_stat.stat.exists == True
+
+- name: clear bm
+  tags: xh
+  shell: "sudo bash uninstall_bm.sh"
+  args:
+    chdir: "{{ xh_work_dir }}/BigManager/bin"
+  when: bm_is_master == "true"
+
+- name: check xh status
+  tags: xh
+  shell: "curl {{ inventory_hostname }}:8088"
+  register: clear_svc_xh
+  when: bm_is_master == "true"
+  ignore_errors: True
+
+- name: del xh work dir
+  tags: xh
+  file:
+    path: "{{ xh_work_dir }}"
+    state: absent
+    force: yes
+  when: bm_is_master == "true"
+
+- name: echo xh status
+  debug:
+    msg: "xh port not exist , success uninstall"
+  when: bm_is_master == "true"
+
+- name: reset krb5.keytab
+  tags: xh
+  shell: "rm -rf /etc/krb5.keytab && cp /tmp/krb5.keytab /etc/krb5.keytab"
+  when: keytab_stat.stat.exists == True

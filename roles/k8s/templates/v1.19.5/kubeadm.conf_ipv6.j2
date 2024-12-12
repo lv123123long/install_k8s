@@ -1,0 +1,57 @@
+apiVersion: kubeadm.k8s.io/v1beta2
+bootstrapTokens:
+- token: "abcdef.0123456789abcdef"
+  description: "kubeadm bootstrap token"
+  ttl: "24h0m0s"
+  usages:
+  - authentication
+  - signing
+  groups:
+  - system:bootstrappers:kubeadm:default-node-token
+kind: InitConfiguration
+nodeRegistration:
+  criSocket: /var/run/dockershim.sock
+  name: {{ inventory_hostname }}
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+apiServer:
+  extraArgs:
+    service-node-port-range: "{{service_node_port_range|default('30000-32767')}}"
+  timeoutForControlPlane: 4m0s
+  certSANs:
+    - 127.0.0.1
+{% if kube_lvs_vip is defined %}
+    - {{ kube_lvs_vip }}
+{% endif %}
+{% for host in groups['k8s_master'] %}
+    - {{host}}
+    - {{hostvars[host]['ansible_facts']['default_ipv4']['address']}}
+{% endfor %}
+certificatesDir: "/etc/kubernetes/pki"
+clusterName: kubernetes
+{% if kube_lvs_vip is defined %}
+controlPlaneEndpoint: "{{kube_lvs_vip}}:{{apiserver_port}}"
+{% endif %}
+controllerManager: {}
+etcd:
+  external:
+    endpoints:
+{% for host in groups['k8s_master'] %}
+    - https://{{host}}:{{etcd_service_port}}
+{% endfor %}
+    caFile: /etc/kubernetes/pki/etcd/ca.pem
+    certFile: /etc/kubernetes/pki/etcd/client.pem
+    keyFile: /etc/kubernetes/pki/etcd/client-key.pem
+imageRepository: k8s.gcr.io
+kind: ClusterConfiguration
+kubernetesVersion: {{k8s_version}}
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{pod_subnet}},{{pod_subnet_ipv6}}"
+  serviceSubnet: {{service_subnet}},{{service_subnet_ipv6}}
+scheduler: {}
+featureGates:
+  IPv6DualStack: true

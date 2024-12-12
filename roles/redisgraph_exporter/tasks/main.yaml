@@ -1,0 +1,22 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check redisgraph_exporter_dbup.service
+  shell: "systemctl status redis_exporter9122.service"
+  register: svc_redisgraph_exporter
+  ignore_errors: true
+
+- name: Install redisgraph_exporter
+  command:
+    cmd: "./dbup prometheus install-redis-exporter -a {{ansible_default_ipv4.address}}:{{redisgraph_standalone_port}}  -p {{redisgraph_password}} -d {{install_redisgraph_exporter_root}} -P 9122"
+    chdir: /tmp/oasis-linux-amd64/bin/
+  when: svc_redisgraph_exporter.rc != 0
+  ignore_errors: true

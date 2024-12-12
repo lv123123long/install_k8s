@@ -1,0 +1,21 @@
+- name: Define replica mode
+  set_fact:
+    mode: "replicaset"
+  when: ansible_play_hosts_all|length >= 3
+
+- name: Define standalone mode
+  set_fact:
+    mode: "standalone"
+  when: ansible_play_hosts_all|length == 1
+
+- name: Display mode
+  debug:
+    msg: "mode: {{mode}}"
+
+- name: Install replicaset
+  include_tasks: "clear_replicaset.yaml"
+  when: mode == "replicaset"
+
+- name: Install replicaset
+  include_tasks: "clear_standalone.yaml"
+  when: mode == "standalone"

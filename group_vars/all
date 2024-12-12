@@ -1,0 +1,36 @@
+ansible_user: "root"  # 服务器 SSH 登录用户
+ansible_ssh_pass: "123123" # 服务器 SSH 登录密码
+ansible_port: "22" # 服务器 SSH 连接端口
+ansible_ssh_common_args: "-o ConnectionAttempts=20"
+
+app_group: bsafe
+app_user: bsafe
+install_root_path: /data/s/services
+init_dayu_disk_path: "/dayudata"
+install_dayu_disk_path: "{{init_dayu_disk_path}}/s/services"
+
+
+install_app_path: '{{install_root_path}}/apps'
+install_data_path: '{{install_root_path}}/data'
+install_etc_path: '{{install_root_path}}/etc'
+install_log_path: '{{install_root_path}}/logs'
+install_run_path: '{{install_root_path}}/run'
+install_tmp_path: '{{install_root_path}}/tmp'
+install_ck_path: '{{install_root_path}}/ck'
+mongo_install_root: "{{install_root_path}}/mongo"
+install_dayu_config_path: '{{install_root_path}}/dayu_config'
+install_dayu_images_path: '{{install_root_path}}/dayu_images'
+install_promtail_path: '{{install_root_path}}/promtail'
+
+###k8s info: 
+etcd_interface: "eth0"
+###配置 flannel 使用网卡名称,解决多网卡下 flannel 连通性异常问题
+flannel_iface: ["eth0"]
+###配置 calico 使用网卡名称
+calico_iface: "eth0"
+##仅在宿主机具备ipv6的情况,为true , ipv4为false
+enable_ipv6: "false"
+
+###minio
+##单机四实例伪集群set true,单实例以及多节点(必须四节点以上)set false
+minio_pseudo_mode: "true"

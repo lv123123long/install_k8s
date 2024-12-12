@@ -1,0 +1,22 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check mongo_exporter_dbup.service
+  shell: "systemctl status mongodb_exporter9216.service"
+  register: svc_mongo_exporter
+  ignore_errors: true
+
+- name: Install mongo_exporter
+  command:
+    cmd: "./dbup prometheus install-mongodb-exporter -a {{ansible_default_ipv4.address}}:{{mongo_service_port}} -u {{mongo_service_user}}  -p {{security['mongo_service_password']}} -d {{install_mongo_exporter_root}}"
+    chdir: /tmp/oasis-linux-amd64/bin/
+  when: svc_mongo_exporter.rc != 0
+  ignore_errors: true

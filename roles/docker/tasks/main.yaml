@@ -1,0 +1,10 @@
+- name: check docker svc
+  shell: "systemctl status docker"
+  register: svc_docker
+  ignore_errors: true
+
+
+- include: docker.yaml
+  when: svc_docker.rc != 0
+
+

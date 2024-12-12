@@ -1,0 +1,27 @@
+- name: stop pg svc
+  service: name=postgres{{pg_service_port}} state=stopped
+  ignore_errors: true
+
+- name: rm pg svc
+  file:
+    path: "/usr/lib/systemd/system/postgres{{pg_service_port}}.service"
+    state: absent
+  ignore_errors: true
+
+- name: rm pg data
+  file:
+    #path: /data01/s/services/pgsql
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - /tmp/oasis-linux-amd64/config
+    - "{{pg_data_dir}}"
+
+  
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

@@ -1,0 +1,7 @@
+- name: check pg_exporter_dbup.service
+  shell: "systemctl status postgres_exporter9187.service"
+  register: svc_pg_exporter
+  ignore_errors: true
+
+- include: pg_exporter.yaml
+  when: svc_pg_exporter.rc != 0

@@ -1,0 +1,27 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+  when: install_exporter
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+  when: install_exporter
+
+
+- name: check redis_exporter_dbup.service
+  shell: "systemctl status redis_exporter9121.service"
+  register: svc_redis_exporter
+  ignore_errors: true
+  when: install_exporter
+
+
+- name: Install redis_exporter
+  command:
+    cmd: "./dbup prometheus install-redis-exporter -a {{ansible_default_ipv4.address}}:{{redis_standalone_port}}  -p {{redis_password}} -d {{install_redis_exporter_root}}"
+    chdir: /tmp/oasis-linux-amd64/bin/
+  when: install_exporter and svc_redis_exporter.rc != 0
+  ignore_errors: true

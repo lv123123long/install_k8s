@@ -1,0 +1,2 @@
+k8s_path: "/etc/kubernetes"
+network_path: "/etc/sysconfig/network-scripts"

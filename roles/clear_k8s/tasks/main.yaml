@@ -1,0 +1,5 @@
+- name: clear k8s
+  tags: [clear_k8s]
+ # when: etcd_group_length|int == 1
+  include_tasks: "clear_k8s.yaml"
+

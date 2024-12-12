@@ -1,0 +1,57 @@
+- name: check mount 
+  shell: "mount | grep /dev/{{ dayu_disk }} | wc -l"
+  register: test_disk_mount
+
+- name: echo disk mount stats
+  debug:
+    msg: "/dev/{{ dayu_disk }} is mounted"
+  when: test_disk_mount.stdout != "0"
+
+- name: echo disk mount stats
+  debug:
+    msg: "/dev/{{ dayu_disk }} is not mounted"
+  when: test_disk_mount.stdout == "0"
+
+- name: create mount dir
+  file:
+    path: "{{ init_dayu_disk_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  when: test_disk_mount.stdout == "0"
+
+- name: umount dir
+  mount:
+    path: "{{ init_dayu_disk_path }}"
+    state: absent
+  when: test_disk_mount.stdout == "0"
+
+- name: format datanode disks
+  filesystem: fstype="{{ format_type }}" dev="/dev/{{ dayu_disk }}" force=true
+  when: test_disk_mount.stdout == "0"
+
+- name: get disk uuid
+  shell: "lsblk -d -o NAME,UUID | grep {{ dayu_disk }} | head -1 | awk '{print $2}' "
+  register: disk_uuid
+  when: test_disk_mount.stdout == "0"
+
+- name: mount datanode disks
+  mount:
+    path: "{{ init_dayu_disk_path }}"
+    src: "UUID={{ disk_uuid.stdout }}"
+    fstype: "{{ format_type }}"
+    opts: "defaults"
+    state: mounted
+  when: test_disk_mount.stdout == "0"
+
+- name: create services dir
+  file:
+    path: "{{ install_dayu_disk_path }}"
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    mode: 0755
+
+- name: time to init file 
+  shell: "echo `date` >> {{install_dayu_disk_path}}/testinit"

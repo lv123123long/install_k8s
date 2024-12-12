@@ -1,0 +1,10 @@
+
+ {% block test %}
+
+{% if enableAuth == True %}
+    {% set web_config_file =  exporter_ssl_dir  + "/config.yml" %}
+{% else %}
+     {% set web_config_file = "" %}
+{% endif %}
+ExecStart={{ exporter_dir }}/{{ app_name }} --web.listen-address=:{{ exporter_port }}  --web.telemetry-path=/metrics --scrape_uri={{ clickhouse_monitor_uri }}  --user={{ endpoint_user }} --password={{ endpoint_password }} --insecure --web.config={{web_config_file}}
+{% endblock %}

@@ -1,0 +1,1 @@
+install_redisgraph_exporter_root: "{{install_data_path}}/exporter/redisgraph_exporter"

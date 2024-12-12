@@ -1,0 +1,53 @@
+- name: Make dirs
+  file:
+    state: directory
+    path: "{{role_root_path}}"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Unarchive tar to install path
+  unarchive:
+    copy: yes
+    src: "files/{{ansible_machine}}/skywalking/apache-skywalking-apm-es7-8.5.0.tar.gz"
+    dest: "{{role_root_path}}"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Create symlink
+  file:
+    state: link
+    src: "{{role_root_path}}/apache-skywalking-apm-bin-es7"
+    dest: "{{role_root_path}}/skywalking"
+
+- name: Config oapServer
+  template:
+    src: oapServer.env
+    dest: "{{role_root_path}}/skywalking/config/oapServer.env"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Fix startup script
+  lineinfile:
+    insertbefore: BOF
+    line: "#!/bin/bash"
+    path: "{{role_root_path}}/skywalking/bin/startup.sh"
+
+- name: Config webapp
+  template:
+    src: webapp.yaml.j2
+    dest: "{{role_root_path}}/skywalking/webapp/webapp.yml"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Config skywalking systemd
+  template:
+    src: "skywalking.service.j2"
+    dest: "/etc/systemd/system/skywalking.service"
+  notify:
+    - reload systemd
+
+- name: Start skywalking
+  service:
+    name: skywalking
+    enabled: yes
+    state: started

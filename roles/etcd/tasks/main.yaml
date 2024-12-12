@@ -1,0 +1,17 @@
+- name: check etcd svc
+  shell: "systemctl status etcd_{{etcd_service_port}}"
+  register: svc_etcd
+  ignore_errors: true
+
+- name: echo etcd stats
+  debug:
+    msg: "etcd not install"  
+
+#- name: test
+#  debug:
+#    msg: "{{etcd_install_root}},{{ etcd_port_client }}"
+
+- include: etcd.yaml
+  when: svc_etcd.rc != 0
+
+

@@ -1,0 +1,2 @@
+role_root_path: "{{install_root_path}}/skywalking"
+service_port: "8080"

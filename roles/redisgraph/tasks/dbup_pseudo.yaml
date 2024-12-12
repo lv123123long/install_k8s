@@ -1,0 +1,56 @@
+- name: Copy oasis
+  #delegate_to: localhost
+  run_once: yes
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  #delegate_to: localhost
+  run_once: yes
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: Config dbup
+  tags: [template]
+ # delegate_to: localhost
+  run_once: yes
+  template:
+    src: templates/redis-pseudo-deploy.yaml.template
+    dest: /tmp/oasis-linux-amd64/config/redis-pseudo-deploy.yaml.template
+
+- name: check redis_svc step 1
+  shell: "systemctl status redis{{redis_standalone_port}}"
+  register: svc_redis0
+  ignore_errors: true
+
+- name: check redis_svc step 2
+  shell: "systemctl status redis{{redis_standalone_pseude_port1}}"
+  register: svc_redis1
+  ignore_errors: true
+
+- name: check redis_svc step 3
+  shell: "systemctl status redis{{redis_standalone_pseude_port2}}"
+  register: svc_redis2
+  ignore_errors: true
+
+- name: Install redis
+ # delegate_to: localhost
+  run_once: yes
+  command:
+    cmd: "./dbup redis-cluster deploy --config=../config/redis-pseudo-deploy.yaml.template"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: svc_redis0.rc != 0 and svc_redis1.rc != 0 and svc_redis2.rc != 0
+  ignore_errors: true
+
+- name: Enable redis
+  service:
+    enabled: yes
+    state: started
+    name: "redis{{item}}"
+  with_items:
+    - "{{redis_standalone_port}}"
+    - "{{redis_standalone_pseude_port1}}"
+    - "{{redis_standalone_pseude_port2}}"

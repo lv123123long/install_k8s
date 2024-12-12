@@ -1,0 +1,32 @@
+- name: stop pg_exporter svc 
+  service: name=postgres_exporter9187 state=stopped
+  ignore_errors: true
+
+- name: rm pg_exporter svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - postgres_exporter9187.service
+
+- name: rm pg_exporter svc file
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "/usr/lib/systemd/system/postgres_exporter9187.service"
+
+- name: rm pg_exporter data
+  file:
+  #  path: /data01/s/services/data/redis
+    path: "{{install_pg_exporter_root}}" 
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

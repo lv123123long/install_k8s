@@ -1,0 +1,19 @@
+{
+    "CN": "k8s root CA",
+    "ca": {
+        "expiry": "175200h"
+    },
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "Kubernetes",
+            "L": "CA",
+            "O": "Kubernetes CA",
+            "ST": "Kubernetes"
+        }
+    ]
+}
+

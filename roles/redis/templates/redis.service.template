@@ -1,0 +1,20 @@
+[Unit]
+Description=Redis 6.0.9 database server
+After=syslog.target
+After=network.target
+
+[Service]
+Type=forking
+User=
+PIDFile=
+OOMScoreAdjust=-1000
+ExecStart=
+ExecStop=
+TimeoutSec=1200
+Restart=on-failure
+RestartSec=5s
+MemoryLimit=5G
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

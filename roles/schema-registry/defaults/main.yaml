@@ -1,0 +1,24 @@
+schema_registry_user: "bsafe"
+schema_registry_group: "bsafe"
+schema_registry_root: "{{install_app_path}}/schema-registry"
+schema_registry_log_dir: "{{install_log_path}}/schema-registry"
+
+kafka_admin_user: "{{schema_registry_kafka_admin_user|default('admin')}}"
+kafka_admin_password: "{{schema_registry_kafka_admin_password|default('admin')}}"
+
+kafka_addrs: "{% if schema_registry_mq_zk_exist %}{% for host in groups['mq']%}{{hostvars[host]['inventory_hostname']}}:{{ kafka_port | default(2181) }}{% if not loop.last %},{% endif %}{%endfor %}{% else %}{{schema_registry_kafka_addrs}}{% endif %}"
+kafka_user: "{{schema_registry_kafka_admin_user|default('admin')}}"
+kafka_password: "{{schema_registry_kafka_admin_password|default('admin')}}"
+
+zookeeper_addrs: "{% if schema_registry_mq_zk_exist %}{% for host in groups['mq']%}{{hostvars[host]['inventory_hostname']}}:{{ zk_port | default(2181) }}{% if not loop.last %},{% endif %}{%endfor %}{% elif schema_registry_zk_exist %}{% for host in groups['zk']%}{{hostvars[host]['inventory_hostname']}}:{{ zk_port | default(2181) }}{% if not loop.last %},{% endif %}{%endfor %}{% else %}{{schema_registry_zookeeper_addrs}}{% endif %}"
+zookeeper_user: "{{schema_registry_zookeeper_user|default('zk')}}"
+zookeeper_password: "{{schema_registry_zookeeper_password|default('zkpasswd')}}"
+
+#schemas kafka config
+
+topic_name: "_schemas"
+consumer_group_id: "schemas_group"
+
+#Zookeeper clusters with the same schemas connecting them need namespace distinction
+
+zookeeper_namespace: "schema_registry"

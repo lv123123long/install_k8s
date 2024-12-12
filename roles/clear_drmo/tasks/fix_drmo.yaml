@@ -1,0 +1,63 @@
+# 关闭玄机
+- name: Closes drmo
+  tags: clean_drmo
+  command:
+    cmd: "kubectl scale --replicas=0 deployment drmo-service drmo-powerjob-worker"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+
+# 删除pg
+
+- name: config clean pg shell
+  tags: clean_drmo
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  template:
+    src: templates/fix_drmo.sh.j2
+    dest: "{{install_root_path}}/pgsql/fix_drmo.sh"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: clean pg
+  tags: clean_drmo
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  command:
+    cmd: "sh fix_drmo.sh"
+    chdir: "{{install_root_path}}/pgsql/"
+
+# 清除ck，重启玄机
+
+- name: Create Ck dir
+  tags: clean_drmo
+  file:
+    path: "{{ install_ck_path }}"
+    state: directory
+
+
+- name: Install Ck Client
+  #delegate_to: localhost
+  tags: clean_drmo
+  copy: 
+    src: "files/{{ansible_machine}}/ck/clickhouse-client"
+    dest: "{{ install_ck_path }}"
+    mode: 0777
+
+- name: Drop xuanji ck database
+  tags: clean_drmo
+  shell: 
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "drop database IF EXISTS {{ item }} on cluster xhraptor" --port 29010 -u admin --host "{{hostvars[groups['xh_master'][0]].ansible_default_ipv4.address}}"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - xuanji_dwd
+
+- name: Create xuanji ck database
+  tags: clean_drmo
+  shell: 
+    cmd: ./clickhouse-client --password Dly9DvXcAT -q "create database IF NOT EXISTS {{ item }} on cluster xhraptor" --port 29010 -u admin --host "{{hostvars[groups['xh_master'][0]].ansible_default_ipv4.address}}"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - xuanji_dwd
+
+- name: Open drmo
+  tags: clean_drmo
+  command:
+    cmd: "kubectl scale --replicas=1 deployment drmo-service drmo-powerjob-worker"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"

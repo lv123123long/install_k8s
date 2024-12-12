@@ -1,0 +1,32 @@
+- include_tasks: install.yaml
+
+- name: Is standalone pseudo mode
+  set_fact:
+    mode: "pseudo"
+  when: 
+    - groups['minio']|length == 1
+    - minio_pseudo_mode == "true"
+
+- name: Is standalone mode
+  set_fact:
+    mode: "standalone"
+  when: 
+    - groups['minio']|length == 1 
+    - minio_pseudo_mode == "false"
+
+- name: Is cluster mode
+  set_fact:
+    mode: "cluster"
+  when: groups['minio']|length >= 4
+
+- include_tasks: standalone.yaml
+  when: mode == "standalone"
+
+- include_tasks: cluster.yaml
+  when: mode == "cluster"
+
+- include_tasks: pseudo.yaml
+  when: mode == "pseudo"
+
+- include_tasks: init.yaml
+  #when: mode ==  "standalone"

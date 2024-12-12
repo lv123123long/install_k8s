@@ -1,0 +1,386 @@
+---
+- name: Create PKI directory
+  file:
+    state: directory
+    path: /etc/kubernetes/pki/etcd
+
+- name: Copy CA cert
+  copy:
+    src: "files/{{ansible_machine}}/etcd/ssl/config/ca.pem"
+    dest: /etc/kubernetes/pki/ca.crt
+
+- name: Copy CA key
+  copy:
+    src: files/{{ansible_machine}}/etcd/ssl/config/ca-key.pem
+    dest: /etc/kubernetes/pki/ca.key
+
+- name: Copy etcd client PKI
+  copy:
+    src: files/{{ansible_machine}}/etcd/ssl/config/{{item}}
+    dest: /etc/kubernetes/pki/etcd
+  with_items:
+    - client.pem
+    - client-key.pem
+
+- name: Copy etcd CA PKI
+  copy:
+    src: files/{{ansible_machine}}/etcd/ssl/config/ca.pem
+    dest: /etc/kubernetes/pki/etcd/ca.pem
+
+- name: Create tmp directory
+  file:
+    state: directory
+    path: /tmp/kube-install/{{k8s_version}}
+
+- name: Copy RPM packages
+  tags: [rpms]
+  copy:
+    src: "files/{{ansible_machine}}/kube/{{k8s_version}}/rpms/"
+    dest: /tmp/kube-install/{{k8s_version}}/rpms/
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Copy DEB packages
+  tags: [debs]
+  copy:
+    src: "files/{{ansible_machine}}/kube/{{k8s_version}}/debs/"
+    dest: /tmp/kube-install/{{k8s_version}}/debs/
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Create kubelet data folder
+  file: >
+    state=directory
+    path={{kubelet_data_path}}
+
+- name: Link kubelet data folder
+  file: >
+    state=link
+    src={{kubelet_data_path}}
+    dest=/var/lib/kubelet
+
+- name: Create kubelet log folder
+  file: >
+    state=directory
+    path="{{kubelet_log_path}}"
+
+- name: Link kubelet log folder
+  file: >
+    state=link
+    src="{{kubelet_log_path}}"
+    dest=/var/log/kubelet
+
+- name: Create pod log folder
+  file: >
+    state=directory
+    path="{{pod_log_path}}"
+
+- name: Link kubelet log folder
+  file: >
+    state=link
+    src="{{pod_log_path}}"
+    dest=/var/log/pods
+
+- name: Install kubernetes RPM
+  tags: [rpms]
+  shell: "yum localinstall -y *.rpm"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/rpms
+ # notify:
+ # - reload systemd
+  when:
+    - internal_install == false
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Install kubernetes DEB
+  tags: [debs]
+  shell: "dpkg -i ./*.deb"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/debs
+ # notify:
+ # - reload systemd
+  when:
+    - internal_install == false
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+  #- name: Install kubernetes repo file
+  #  tags: [rpms]
+  #  when: internal_install == true
+  #  get_url:
+  #    url: https://rpms.ops.qianxin-inc.cn/rpms/kubernetes/kubernetes.repo
+  #    dest: /etc/yum.repos.d/kubernetes.repo
+  #
+  #- name: Install kubernetes RPM from internal repo
+  #  tags: [rpms]
+  #  when: internal_install == true
+  #  package:
+  #    name:
+  #      - kubelet-{{kube_version}}-0.x86_64
+  #      - kubeadm-{{kube_version}}-0.x86_64
+  #      - kubectl-{{kube_version}}-0.x86_64
+  # notify:
+  # - reload systemd
+
+- name: Copy Images
+  tags: [image]
+  copy:
+    src: files/{{ansible_machine}}/kube/{{k8s_version}}/images/
+    dest: /tmp/kube-install/{{k8s_version}}/images/
+
+- name: Load Images
+  tags: [image]
+  shell: "for i in `ls`; do docker load -i $i; done"
+  args:
+    chdir: /tmp/kube-install/{{k8s_version}}/images
+
+- name: Prepare kubeadm
+  tags: [kubeadm]
+  template:
+    src: templates/{{k8s_version}}/kubeadm.conf.j2
+    dest: /etc/kubernetes/kubeadm.conf
+  when: enable_ipv6 == "false"
+
+- name: Prepare kubeadm
+  tags: [kubeadm]
+  template:
+    src: templates/{{k8s_version}}/kubeadm.conf_ipv6.j2
+    dest: /etc/kubernetes/kubeadm.conf
+  when: enable_ipv6 == "true"
+
+- name: Install new kubeadm
+  copy:
+    src: files/{{ansible_machine}}/kube/{{k8s_version}}/kubeadm
+    dest: /bin/kubeadm
+    mode: 0755
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Enable kubelet
+  tags: [kubeadm]
+  systemd:
+    name: kubelet
+    daemon_reload: yes
+    enabled: yes
+
+- name: Disable SWAP
+  shell: swapoff -a
+
+- name: check kubelet status
+  #delegate_to: "{{groups['k8s_master'][0]}}"
+  shell: "curl -k https://{{ ansible_default_ipv4.address }}:6443"
+  register: svc_k8s
+  ignore_errors: True
+
+- debug: var=svc_k8s.stdout_lines
+
+- name: echo k8s test result
+  #delegate_to: "{{groups['k8s_master'][0]}}"
+  debug:
+    msg: "k8s already install . start init"
+  when: svc_k8s.rc == 0
+
+- name: echo k8s test result
+  #delegate_to: "{{groups['k8s_master'][0]}}"
+  debug: 
+    msg: "k8s not install"
+  when: svc_k8s.rc != 0
+
+- name: kubeadm init
+  tags: [kubeadm]
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubeadm init --config /etc/kubernetes/kubeadm.conf --node-name={{groups['k8s_master'][0]}}"
+  #when: svc_k8s.rc == 0
+
+- name: Collect kubernetes certs
+  tags: [fetch]
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  #shell: "tar zcvf /tmp/kube-install/certs.tar.gz /etc/kubernetes/pki/*.{crt,key,pub}"
+  shell: "tar zcvf /tmp/kube-install/certs.tar.gz /etc/kubernetes/pki"
+
+- name: Fetch certs
+  tags: [fetch]
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  fetch: >
+    src=/tmp/kube-install/certs.tar.gz
+    dest=/tmp/
+    flat=yes
+
+- name: Copy files
+  tags: [fetch]
+  when: inventory_hostname != groups['k8s_master'][0]
+  copy: >
+    src=/tmp/certs.tar.gz
+    dest=/tmp/kube-install/certs.tar.gz
+
+- name: Decompress certs
+  tags: [fetch]
+  when: inventory_hostname != groups['k8s_master'][0]
+  shell: "tar xvf /tmp/kube-install/certs.tar.gz -C /"
+
+- name: kubeadm init other master
+  when:
+    - inventory_hostname != groups['k8s_master'][0]
+    - groups['k8s_master']|length >= 2
+    - init_off is not defined
+   # - svc_k8s.rc != 0
+  command: "kubeadm init --config /etc/kubernetes/kubeadm.conf --node-name={{inventory_hostname}}"
+
+- name: Config kubeconfig
+  file:
+    state: directory
+    path: /root/.kube
+
+- name: Config kubeconfig
+  copy:
+    remote_src: yes
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+
+- name: Config flannel 13
+  when: cni_plugin == 'flannel' and enable_ipv6 == "false" and ansible_distribution == "CentOS" and ansible_distribution_major_version == "7"
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template:
+    src: templates/{{k8s_version}}/flannel.yaml.j2
+    dest: /tmp/kube-install/flannel.yaml
+
+## ubuntu 22.04 安装 低版本 flannel 后节点间通信不正常，切换为 flannel 0.20.0
+- name: Config flannel 20
+  when: cni_plugin == 'flannel' and enable_ipv6 == "false" and ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "22"
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template:
+    src: templates/{{k8s_version}}/flannel20.yaml.j2
+    dest: /tmp/kube-install/flannel.yaml
+
+- name: set sysctl for ipv6
+  when: enable_ipv6 == "true"
+  sysctl: >
+    name="{{item.name}}"
+    value="{{item.value}}"
+    state=present
+    sysctl_set=yes
+  with_items:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '0'}
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '0'}
+  ignore_errors: true
+
+- name: ipip for ipv6
+  when: enable_ipv6 == "true"
+  shell: "modprobe ipip"
+
+- name: restart network for ipv6
+  when: enable_ipv6 == "true"
+  service:
+    name: "network"
+    enabled: yes
+    state: restarted
+  ignore_errors: yes 
+
+- name: Config calico
+  when: enable_ipv6 == "true"
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template:
+    src: templates/{{k8s_version}}/calico_for_ipv6.yaml.j2
+    dest: /tmp/kube-install/calico_for_ipv6.yaml
+
+- name: Install flannel Daemonset
+  when: cni_plugin == 'flannel' and enable_ipv6 == "false"
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl apply -f /tmp/kube-install/flannel.yaml"
+
+- name: Install calico Daemonset
+  when: enable_ipv6 == "true"
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl apply -f /tmp/kube-install/calico_for_ipv6.yaml"
+
+- name: Config canal
+  when: cni_plugin == 'canal'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template: >
+    src=templates/{{k8s_version}}/canal.rbac.yaml.j2
+    dest=/tmp/kube-install/canal.rbac.yaml
+
+- name: Config canal
+  when: cni_plugin == 'canal'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template: >
+    src=templates/{{k8s_version}}/canal.deploy.yaml.j2
+    dest=/tmp/kube-install/canal.deploy.yaml
+
+- name: Config kube-router
+  when: cni_plugin == 'kube-router'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  template: >
+    src=templates/{{k8s_version}}/kube-router.yaml.j2
+    dest=/tmp/kube-install/kube-router.yaml
+
+- name: Install canal RBAC
+  when: cni_plugin == 'canal'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl apply -f /tmp/kube-install/canal.rbac.yaml"
+
+- name: Install canal Daemonset
+  when: cni_plugin == 'canal'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl apply -f /tmp/kube-install/canal.deploy.yaml"
+
+- name: Remove kube-proxy
+  when: cni_plugin == 'kube-router'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl delete ds -n kube-system kube-proxy"
+
+- name: Install kube-router Daemonset
+  when: cni_plugin == 'kube-router'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  command: "kubectl apply -f /tmp/kube-install/kube-router.yaml"
+
+- name: Cleanup kube-proxy rules
+  when: cni_plugin == 'kube-router'
+  delegate_to: "{{groups['k8s_master'][0]}}"
+  run_once: yes
+  ignore_errors: yes
+  command: "docker run --privileged -v /lib/modules:/lib/modules --net=host {{image_repository}}/kube-proxy:v{{kube_version}} kube-proxy --cleanup"
+
+- name: Untaint master
+  when: groups['k8s_master'] | length >= 3 or schedule_on_master == true
+  command: "kubectl taint node {{ inventory_hostname }} node-role.kubernetes.io/master:NoSchedule-"
+  ignore_errors: true 
+
+- name: replace kube controller image
+  tags: [useceph]
+  replace:
+    path: /etc/kubernetes/manifests/kube-controller-manager.yaml
+    regexp: '^(\s*)(image: ).*'
+    replace: '\1\2harbor.yun.qianxin-inc.cn/rancher/hyperkube:v1.19.4-rancher1-linux-amd64'
+  when: use_ceph_pv is defined and use_ceph_pv == 'true'
+
+- name: fetch kubeconfig to localhost
+  fetch:
+    src: "/root/.kube/config"
+    dest: "{{ kube_config_dir }}/config"
+    flat: yes
+  run_once: yes
+
+#- name: Get join commnad
+  #delegate_to: "{{groups['k8s_master'][0]}}"
+  #run_once: yes
+  #shell: "kubeadm token create --print-join-command > /tmp/kube-install/join_command.txt"

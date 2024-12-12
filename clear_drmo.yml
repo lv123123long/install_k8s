@@ -1,0 +1,7 @@
+---
+
+- hosts: dayu_config
+  gather_facts: yes
+  become: yes
+  roles:
+    - role: clear_drmo

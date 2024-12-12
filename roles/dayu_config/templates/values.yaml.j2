@@ -1,0 +1,127 @@
+config:
+  envBm: {{ groups['xh_master'][0] }}:8088
+  envBmPassword: Qianxin@202o
+  envBmUsername: admin
+  envNTPService: {{ groups['xh_master'][0] }}
+  envClickhouse: 
+{% for ck_host in ck_hosts %}
+    - {{ ck_host }}:8123
+    - {{ ck_host }}:8124
+{% endfor %}
+  envClickhouseUsername: admin
+  # envDarwin: 10.46.176.128:31381
+  envDarwin: 127.0.0.1:8080
+  envDataPermissionUsername: admin
+  envEsUsername: es_admin
+  envEtcdPort: "2381"
+  envExporterPg: {{ groups['pg_master'][0] }}:9187
+  envExporterRedis: {{ groups['redis'][0] }}:9121
+  envK8sMaster: {{ groups['k8s_master'][0] }}
+  envKafkaBrokers: 
+{% for kafka_host in kafka_hosts %}
+    - {{ kafka_host }}:9092
+{% endfor %}
+  envLokiSocket: {{ groups['loki'][0] }}:{{ hostvars[groups['loki'][0]].loki_service_port }}
+{% if dayu_mode == "core" %}
+  envMergeSingle: true
+{% else %}
+  envMergeSingle: false
+{% endif %}
+  envMinioSocket: {{ groups['minio'][0] }}:{{ hostvars[groups['minio'][0]].minio_service_port }}
+  envDBAddress: {{ groups['pg_master'][0] }}:{{ hostvars[groups['pg_master'][0]].pg_service_port }}
+  envDBUsername: postgres
+  envPrometheusNodename: {{ groups['k8s_master'][0] }}
+  envRaptor: 
+{% for ck_host in ck_hosts %}
+    - {{ ck_host }}:9210
+{% endfor %}
+  envRedisCluster: true
+  envRedis:
+{% if groups['redis']|length ==  1  %}
+    - "{{groups['redis'][0]}}:16379"
+    - "{{groups['redis'][0]}}:16380"
+    - "{{groups['redis'][0]}}:16381"
+{% else %}
+{% for redis_host in groups['redis'] %}
+    - {{redis_host}}:16379
+    - {{redis_host}}:16380
+{% endfor %}
+{% endif %}
+  envZookeepers: 
+{% for zk_host in zk_hosts %}
+    - {{ zk_host }}:2181
+{% endfor %}
+{% if dayu_mode == "gateway" %}
+{% else %}
+  envElasticsearch: 
+{% for es_host in es_hosts %}
+    - {{ es_host }}:9200
+{% endfor %}
+  envExporterMongodb: {{ groups['mongo'][0] | default("notinstall") }}:9216
+  envMongoUri: "mongodb://{{ hostvars[groups['mongo'][0]].mongo_service_user | default("admin") }}:{{security['mongo_service_password'] | default("GL6ZyiERr0oUA7l#_1") }}@{{ groups['mongo'][0] | default("notinstall") }}:{{ hostvars[groups['mongo'][0]].mongo_service_port | default("notinstall") }}"
+  envRedisGraph: {{ groups['redisgraph'][0] | default("notinstall") }}:{{ hostvars[groups['redisgraph'][0]].redisgraph_cluster_port | default("notinstall") }}
+{% endif %}
+secret:
+  envClickhousePassword: Dly9DvXcAT
+  envDataCryptoKey: 9AaUiibY
+  envDataPermissionPassword: admin@1234
+  envDayuPassword: dayu@1234
+  envEsPassword: '%36.Hadoop*'
+  envMinioAccesskey: {{ hostvars[groups['minio'][0]].minio_access_key|default("oZeunXKqdtHmiwQ7") }}
+  envMinioSecretkey: {{ hostvars[groups['minio'][0]].minio_secret_key|default("6MkKhEK8EaNviAYjUCdJEj") }}
+  envDBPassword: {{ hostvars[groups['pg_master'][0]].pg_admin_password }}
+{% if dayu_mode == "gateway" %}
+{% else %}
+  envRedisGraphPassword: {{ hostvars[groups['redisgraph'][0]].redisgraph_password }}
+{% endif %}
+  envRedisPassword: {{ hostvars[groups['redis'][0]].redis_password }}
+  envXuanjiPassword: xuanji1qaz2wsx!@#$
+  password: "123"
+  username: dayu
+{% if dayu_mode == "gateway" %}
+dayu:
+  initGateway: true
+{% else %}
+{% if dayu_env == "minimum" %}
+dayu:
+  sabre:
+    resources:
+      requests:
+        cpu: 100m
+    parallelism: 
+      sabre: 3
+      sabre-test: 3
+  uae:
+    parallelism:
+      generate: 1
+      merge: 1
+    uaeMerge:
+      checkpoint:
+        interval: 0
+  flink:
+    extendNgsoc: false
+    sabre:
+      resources:
+        taskManager:
+          cpu: "1"
+    uaeMerge:
+      resources:
+        taskManager:
+          cpu: "1"
+{% endif %}
+{% endif %}
+zeus:
+  enabled:
+    migration: false
+{% if dayu_mode == "all" %}
+  plus:
+    - asset-operation
+    - hairui
+    - jingwei
+    - tip
+    - analysis-ip-persona
+    - interaction-response
+    - system-back-agent
+    - analysis-threat
+    - operation-attack-drill
+{% endif %}

@@ -1,0 +1,13 @@
+kubelet_data_path: "{{install_data_path}}/kubelet/data"
+kubelet_log_path: "{{install_data_path}}/kubelet/log"
+pod_log_path: "{{install_data_path}}/kubelet/pods"
+internal_install: false
+k8s_version: v1.15.5
+cni_plugin: "flannel"
+schedule_on_master: false
+apiserver_port: 6443
+service_node_port_range: "30000-32767"
+app_install: true
+
+kube_config_dir: "/tmp"
+k8s_with_ingress: "false"

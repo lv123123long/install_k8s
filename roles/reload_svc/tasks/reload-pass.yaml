@@ -1,0 +1,74 @@
+- name: step12-1 update redis16379 config
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\" {{ redis_cluster16379_data_dir }}/nodes.conf"
+  ignore_errors: yes
+  loop: "{{groups['change_host']}}"
+
+- name: step12-2 update redis16380 config
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\" {{ redis_cluster16380_data_dir }}/nodes.conf"
+  ignore_errors: yes
+  loop: "{{groups['change_host']}}"
+
+- name: step13 restart redis16379 redis16380
+  service:
+    name: "{{ item }}"
+    state: restarted
+  ignore_errors: yes
+  with_items:
+   - redis16379
+   - redis16380
+
+- name: step14 update dayu-config host
+  delegate_to: "{{ hosts }}"
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\" `find {{ dayu_config_path }} -type f`"
+  ignore_errors: yes
+  loop: "{{groups['change_host']}}"
+
+#- name: step15 rg -e single core #暂时不需要
+#  delegate_to: "{{ hosts }}"
+#  shell:
+#    cmd: "kubectl delete ns noah-flink-single &&  kubectl delete ns uae-flink-single && kubectl delete ns sabre-flink-single  &&  rg -e single core"
+#    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+
+- name: step16 update xh  pg_hba.conf
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\"  pg_hba.conf"
+    chdir: "{{ xh_pg_path }}"
+  loop: "{{groups['change_host']}}"
+
+#- name: step17 update noah config #642暂时不需要
+#  delegate_to: "{{ hosts }}"
+#  shell:
+#    cmd: "sed  -i \"s/{{ hostvars[item][\"oldip\"] }}/{{ hostvars[item][\"newip\"] }}/g\"  `find . -type f`"
+#    chdir: "{{ noah_path }}"
+#  loop: "{{groups['change_host']}}"
+
+- name: step17 update pg_exporter config
+  shell:
+    cmd: "sed  -i \"s/{{ hostvars[inventory_hostname][\"oldip\"] }}/{{ hostvars[inventory_hostname][\"newip\"] }}/g\" {{ item }}"
+    chdir: "{{ systemctl_path }}"
+  ignore_errors: yes
+  with_items:
+   - redis_exporter9121.service
+   - postgres_exporter9187.service
+   - mongodb_exporter9216.service 
+
+- name: step18 systemctl daemon-reload
+  shell:
+    cmd: "systemctl daemon-reload"
+    chdir: "{{ systemctl_path }}"
+
+- name: step19 restart redis_exporter9121.service,postgres_exporter9187.service,mongodb_exporter9216.service
+  service:
+    name: "{{ item }}"
+    state: restarted
+  ignore_errors: yes
+  with_items:
+   - redis_exporter9121.service
+   - postgres_exporter9187.service
+   - mongodb_exporter9216.service
+
+- name: step 20 Reboot all host
+  reboot:

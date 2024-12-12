@@ -1,0 +1,68 @@
+- name: Ensure iptables is installed.
+  package: name=iptables state=installed
+
+- name: Backup iptable rules into file.
+  shell: iptables-save > /tmp/iptables.bak
+
+- name: Accept ping 8
+  shell: "iptables  -A INPUT -p icmp --icmp 8 -j ACCEPT"
+  notify: save iptables
+
+- name: Accept ping 0
+  shell: "iptables -A OUTPUT  -p icmp --icmp 0 -j ACCEPT"
+  notify: save iptables
+
+- name: Configure iptables allowed tcp ports.
+  iptables: chain=INPUT destination_port={{ item }} protocol=tcp jump=ACCEPT state=present action={{ iptables_action }} state={{ iptables_state }}
+  with_items: "{{ iptables_allowed_tcp_ports }}"
+  when: iptables_allowed_tcp_ports != ''
+  notify: save iptables
+
+- name: Configure iptables allowed udp ports.
+  iptables: chain=INPUT destination_port={{ item }} protocol=udp jump=ACCEPT state=present action={{iptables_action }} state={{ iptables_state }}
+  with_items: "{{ iptables_allowed_udp_ports }}"
+  when: iptables_allowed_udp_ports != ''
+  notify: save iptables 
+
+- name: Configure iptables deny tcp ports.
+  iptables: chain=INPUT destination_port={{ item }} protocol=tcp jump=DROP state=present action={{ iptables_action }} state={{ iptables_state }}
+  with_items: "{{ iptables_deny_tcp_ports }}"
+  when: iptables_deny_tcp_ports != ''
+  notify: save iptables
+
+- name: Configure iptables deny udp ports.
+  iptables: chain=INPUT destination_port={{ item }} protocol=udp jump=DROP state=present action={{ iptables_action }} state={{ iptables_state }}
+  with_items: "{{ iptables_deny_udp_ports }}"
+  when: iptables_deny_udp_ports != ''
+  notify: save iptables
+
+- name: some resource for i
+  shell: "iptables -A INPUT -i {{item}} -j ACCEPT"
+  with_items:
+    - lo
+  notify: save iptables
+ 
+- name: some resource for s
+  shell: "iptables -A INPUT -s {{item}} -j ACCEPT"
+  with_items:
+    - 172.0.0.0/8
+    - 127.0.0.0/8
+    - "{{ansible_default_ipv4.address}}/32"
+  notify: save iptables
+ 
+- name: some resource for d
+  shell: "iptables -A INPUT -d {{item}} -j ACCEPT"
+  with_items:
+    - 172.0.0.0/8
+    - 127.0.0.0/8
+  notify: save iptables
+
+- name: some resource for m
+  shell: "iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT"
+  notify: save iptables
+
+- name: drop other input  resource
+  shell: "iptables -A INPUT -j DROP"
+  notify: save iptables
+ 
+ 

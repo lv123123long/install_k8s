@@ -1,0 +1,6 @@
+- name: Grant postgres to all hosts
+  tags:
+    - noah-pg-init
+  command:
+    cmd: "/tmp/oasis-linux-amd64/bin/dbup pgsql user grant --dbname all -u postgres -P {{pg_service_port}} --user postgres -p '{{pg_admin_password}}' -a 0.0.0.0/0 -H 127.0.0.1"
+    chdir: /tmp/oasis-linux-amd64/bin

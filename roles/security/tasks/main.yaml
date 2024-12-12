@@ -1,0 +1,7 @@
+---
+# tasks file for random
+ - name: Generating passwrod
+   set_fact:
+       security: "{{(security |default({})) | combine({item: (item | password_hash('sha512', 65534 | random(seed=security_salt) | string) | regex_replace('/','#'))[(0-pwdlen|int):]+'_1'})}}"
+   with_items:
+     "{{generator}}"

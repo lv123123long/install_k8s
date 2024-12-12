@@ -1,0 +1,7 @@
+tls_server_config:
+  cert_file: {{ exporter_ssl_dir }}/{{ inventory_hostname }}.crt
+  key_file: {{ exporter_ssl_dir }}/{{ inventory_hostname }}.key
+{% if exporter_users is defined and exporter_pwd is defined %}
+basic_auth_users:
+  {{ exporter_users }}: {{ exporter_pwd }}
+{% endif %}

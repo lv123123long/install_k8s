@@ -1,0 +1,59 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+#- name: rm redis template
+#  tags: [template]
+#  delegate_to: localhost
+#  run_once: yes
+#  file:
+#    path: /tmp/oasis-linux-amd64/config/redis-standalone-deploy.conf.template
+#    state: absent
+#  ignore_errors: true
+
+
+#- name: Config dbup
+#  tags: [template]
+#  delegate_to: localhost
+#  run_once: yes
+#  template:
+#    src: templates/redis-standalone-deploy.conf.template
+#    dest: /tmp/oasis-linux-amd64/config/redis-standalone-deploy.conf.template
+
+
+- name: check redis_svc
+  shell: "systemctl status redis16379"
+  register: svc_redis
+  ignore_errors: true
+
+
+- name: Install redis without redisgraph
+  when: with_redisgraph != "true" and svc_redis.rc != 0
+  command:
+    cmd: "./dbup redis install -m '{{redis_max_memory}}' -p '{{redis_password}}' -d {{redis_standalone_data_dir}} -P {{redis_standalone_port}} -y"
+    chdir: /tmp/oasis-linux-amd64/bin
+  ignore_errors: true
+
+- name: Install redis with redisgraph
+  when: with_redisgraph == "true" and svc_redis.rc != 0
+  command:
+    cmd: "./dbup redis install -m '{{redis_max_memory}}' -p '{{redis_password}}' -d {{redis_standalone_data_dir}} -P {{redis_standalone_port}} -y -M redisgraph"
+    chdir: /tmp/oasis-linux-amd64/bin
+  ignore_errors: true
+  
+- name: Enable redis
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "redis{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "{{redis_standalone_port}}"
+

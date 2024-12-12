@@ -1,0 +1,47 @@
+- name: Copy rpm packages
+  copy:
+    src: files/{{ansible_machine}}/redis
+    dest: /tmp/redis
+
+- name: Install rpms from local
+  shell: "yum localinstall -y *.rpm"
+  args:
+    chdir: /tmp/redis/redis/
+
+- name: 1 instance per node
+  set_fact:
+    instance_per_node: 1
+  when: groups["redis"]|length > 2 and groups["redis"]|length < 6
+
+- name: 1 instance per node
+  set_fact:
+    instance_per_node: 1
+  when: groups["redis"]|length > 6
+
+- name: Make dirs
+  file:
+    state: directory
+    path: "{{item}}"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  with_items:
+    - "{{redis_config_dir}}"
+    - "{{redis_cluster_data_dir}}"
+    - "{{redis_cluster_run_dir}}"
+    - "{{redis_cluster_log_dir}}"
+
+- name: Setup instances
+  include_tasks: instance.yaml
+  vars:
+    port: "{{redis_cluster_port + item}}"
+  loop: "{{range(0, instance_per_node)|list}}"
+
+- set_fact:
+    all_nodes: "{% for host in groups['redis']  %}{% for idx in range(0, instance_per_node) %}{{hostvars[host]['ansible_facts']['default_ipv4']['address']}}:{{redis_cluster_port|int + idx}} {%endfor%}{%endfor%}"
+
+- name: Create cluster
+  when:
+    - inventory_hostname == groups['redis'][0]
+  #shell: "echo yes | redis-cli --cluster create --cluster-replicas 1 {{all_nodes}} -a {{redis_password}}"
+  shell: "echo yes | redis-cli --cluster create  {{all_nodes}} -a {{redis_password}}"
+

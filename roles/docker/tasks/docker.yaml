@@ -1,0 +1,107 @@
+- name: Set Centos Docker Version
+  set_fact:
+    docker_version: "19.03.15"
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_major_version == "7"
+
+- name: Set Ubuntu Docker Version
+  set_fact:
+    docker_version: "20.10.20"
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Copy docker tar file to remote
+  copy:
+    src: files/{{ansible_machine}}/docker/docker-{{docker_version}}.tgz
+    dest: /tmp/
+
+- name: Unzip docker tar file
+  unarchive:
+    remote_src: yes
+    src: /tmp/docker-{{docker_version}}.tgz
+    dest: /tmp
+
+- name: Install docker binary
+  shell: cp -fa /tmp/docker/* /usr/bin
+
+- name: Make docker config dir
+  file:
+    state: directory
+    path: /etc/docker
+
+- name: Make docker group
+  group:
+    name: docker
+    state: present
+
+- name: Make docker data dir
+  file:
+    state: directory
+    path: "{{docker_data_root}}"
+    mode: 0700
+    owner: root
+    group: docker
+
+- name: Config Docker daemon
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+
+- name: Config containerd.service
+  template:
+    src: containerd.service.j2
+    dest: /etc/systemd/system/containerd.service
+
+- name: Config docker.socket
+  template:
+    src: docker.socket.j2
+    dest: /etc/systemd/system/docker.socket
+
+- name: Config docker.service
+  template:
+    src: docker.service.j2
+    dest: /etc/systemd/system/docker.service
+
+- name: Modprobe br_netfilter
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Modprobe nf_conntrack_netlink
+  modprobe:
+    name: nf_conntrack_netlink
+    state: present
+
+- name: Set sysctl
+  sysctl: >
+    name="{{item.name}}"
+    value="{{item.value}}"
+    state=present
+    sysctl_set=yes
+  with_items:
+    - { name: 'net.nf_conntrack_max', value: '4194304'}
+    - { name: 'net.core.rmem_default', value: '524280'}
+    - { name: 'net.ipv4.udp_rmem_min', value: '10240'}
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1'}
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1'}
+    - { name: 'fs.inotify.max_user_instances', value: '16384'}
+    - { name: 'fs.inotify.max_user_watches', value: '524288'}
+    - { name: 'fs.inotify.max_queued_events', value: '16384'}
+    - { name: 'net.ipv4.ip_local_port_range', value: '2048 64000'}
+    - { name: 'net.ipv4.conf.all.rp_filter', value: '0'}
+    - { name: 'net.ipv4.tcp_timestamps', value: '0'}
+
+- name: Enable containerd.service
+  service:
+    name: containerd
+    state: started
+    enabled: yes
+
+- name: Enable docker.service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+

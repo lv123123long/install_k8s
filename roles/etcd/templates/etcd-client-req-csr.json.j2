@@ -1,0 +1,16 @@
+{
+  "CN": "etcd client",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "{{ssl_etcd_contry|default(etcd_ssl_etcd_contry)}}",
+      "ST": "{{ssl_etcd_province|default(etcd_ssl_etcd_province)}}",
+      "O": "{{ssl_etcd_organization|default(etcd_ssl_etcd_organization)}}",
+      "OU": "{{ssl_etcd_organization_unit|default(etcd_ssl_etcd_organization_unit)}}",
+      "L": "{{ssl_etcd_city|default(etcd_ssl_etcd_city)}}"
+    }
+  ]
+}

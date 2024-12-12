@@ -1,0 +1,5 @@
+---
+- name: restart process_exporter
+  service:
+    name: process_exporter
+    state: restarted

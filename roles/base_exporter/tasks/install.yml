@@ -1,0 +1,110 @@
+---
+- name: Ensure user 
+  group:
+    name: "{{ app_group }}"
+    system: yes
+    state: present
+
+- name: Ensure user 
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: yes
+    shell: /bin/bash
+    createhome: no
+
+- name: Ensure exporter dir
+  file:
+    dest: "{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    state: directory
+  with_items:
+    - "{{ exporter_dir }}"
+
+- name: Ensure exporter ssl dir
+  file:
+    dest: "{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    state: directory
+  when: enableAuth
+  with_items:
+    - "{{ exporter_ssl_dir }}"
+
+- name: Ensure exporter log dir
+  file:
+    dest: "{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    state: directory
+  with_items:
+    - "{{ app_log_dir }}"
+  when: app_log_dir is defined
+
+- name: Check tls crt 
+  stat:
+    path: "{{ exporter_ssl_dir }}/{{ inventory_hostname }}.crt"
+  register: file_status_crt
+  when: enableAuth
+- name: Check tls key 
+  stat:
+    path: "{{ exporter_ssl_dir }}/{{ inventory_hostname }}.key"
+  register: file_status_key
+  when: enableAuth
+
+- name: Gen tls crt
+  command: openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 -keyout {{ inventory_hostname }}.key -out {{ inventory_hostname }}.crt -subj "/C\=BE/ST\=Antwerp/L\=Brasschaat/O\=Inuits/CN\={{ inventory_hostname }}"
+  args:
+    chdir: "{{ exporter_ssl_dir }}"
+  when: enableAuth == True and ( file_status_crt.stat.exists == False or file_status_key.stat.exists == False )
+  #notify:
+  #  - restart "{{app_name}}"
+
+- name: Gen Web Config
+  template:
+    src: config.yml.j2
+    dest: "{{ exporter_ssl_dir }}/config.yml"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '644'
+  when: enableAuth
+  register: web_config_file
+  #notify:
+  #  - restart {{ app_name }}
+
+
+- name:  Check exporter version
+  command: "/usr/bin/{{ app_name }} -version"
+  register: exporter_version_check
+  changed_when: false
+  ignore_errors: true
+
+- name:  Copy binary
+  copy:
+    src: files/{{ansible_machine}}/base_exporter/{{ app_name }}
+    dest: "{{ exporter_dir }}/{{ app_name }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: 0755
+  when: exporter_version_check is failed
+  notify: restart  {{app_name}}
+
+- name:  Link binary
+  file:
+    src: "{{ exporter_dir }}/{{app_name}}"
+    dest: "/usr/bin/{{app_name}}"
+    state: link
+  when: exporter_version_check is failed
+
+- name:  Copy Daemon script
+  template:
+    src:  "../templates/service.j2"
+    dest: "/etc/systemd/system/{{app_name}}.service"
+    mode: 0644
+  with_items:
+    - "../templates/service.j2"
+    - "../templates/{{app_name}}.j2"
+  notify: 
+    - reload systemd
+    - restart exporter

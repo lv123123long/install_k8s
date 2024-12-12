@@ -1,0 +1,19 @@
+[bm]
+mode = {{xh_install_mode}}
+security_level = 0
+install_path = {{install_xh_path}}
+database_type = postgresql
+cluster_name = {{ bm_cluster_name }}
+admin_user = admin
+admin_password = U2FsdGVkX1/Xzea0Ca4eliXOCMGxSFgz+Z31+/p/PGQ=
+product_line = {{ bm_product_line_name }}
+mem_size = {{xh_host_mem}}
+node_number = 00{{groups['xh']|length}}
+deploy_from_excel = true
+template = {{ xh_install_template }}
+data_volume_name_equal_width = true
+cpu_structure= {{ bm_cpu_structure }}
+auto_disk_format = true
+custom_formatted_disk = /testdir01,/testdir02,/testdir03
+check_root_partition = true
+iptables_or_firewalld = firewalld

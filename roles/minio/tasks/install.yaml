@@ -1,0 +1,29 @@
+- name: Create root folder
+  file:
+    path: "{{minio_install_root}}/{{item}}"
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  with_items:
+    - bin
+    - etc
+    - data
+    - etc/etcd
+    - etc/CAs
+
+- name: Install Client Binary
+  copy:
+    src: files/{{ansible_machine}}/minio/mc
+    dest: "{{minio_install_root}}/bin/mc"
+    mode: 0755
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Install Server Binary
+  copy:
+    src: files/{{ansible_machine}}/minio/minio
+    dest: "{{minio_install_root}}/bin/minio"
+    mode: 0755
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+

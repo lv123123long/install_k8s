@@ -1,0 +1,23 @@
+[server]
+#每个参数项目后必须填写ip地址，用来远程登录，如果留空则忽略，如果留空大于等于2个或者master被留空，那么报错：服务器数量不足2台无法搭建集群/master节点未配置请进行检查
+address={% for host in ansible_play_hosts_all %}
+{{hostvars[host]["ansible_facts"]["default_ipv4"]["address"]}}{%if not loop.last%},{%endif%}
+{% endfor %}
+
+ssh-port={{ansible_port|default(22)}}
+#用于远程登录的ss端口
+ssh-user="{{ansible_user}}"
+#用于远程登录的账户，比如是root
+ssh-password="{{ansible_ssh_pass}}"
+#root账户的密码
+
+[mongodb]
+#监听端口，如果没有特殊要求请勿修改
+port        = {{mongo_service_port}}
+#数据部署目录，请确认该目录存在，默认为/opt/pgsql+端口号，如无特殊要求请勿修改
+dir         = {{mongo_install_root}}/{{mongo_service_port}}
+username    = "{{mongo_service_user}}"
+password    = "{{security['mongo_service_password']}}"
+memory      = 8
+replSetName = mongorepl
+bind-ip     = 0.0.0.0

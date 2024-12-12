@@ -1,0 +1,209 @@
+- name: install dayu-config
+  tags: dayu_config
+  debug:
+    msg: "Install dayu-configs and rg"
+
+#- name: init ck database
+#  tags: dayu_config
+#  shell: /home/clickhouse/software/clickhouse-21.2.2.8/bin/clickhouse-client --password Dly9DvXcAT -q "create database IF NOT EXISTS {{ item }} on cluster xhraptor" --port 29010 -u admin
+#  with_items:
+#    - xuanji_dwd
+#    - uae
+#
+#- name: clear dayu-confg dir
+#  tags: dayu_config
+#  file:
+#    state: absent
+#    path: "{{install_dayu_config_path}}"
+#
+#- name: mkdir dayu-config dir
+#  tags: dayu_config
+#  file:
+#    state: directory
+#    path: "{{install_dayu_config_path}}"
+
+- name: copy dayu-config tar
+  tags: dayu_config
+  unarchive:
+    src: "files/{{ansible_machine}}/dayu-config/{{dayu_rg_file}}"
+    dest: "{{ install_dayu_config_path }}"
+
+# 新版本为适配 arm64 场景，setup.sh 脚本中自行安装rg命令
+# - name: ln rg cmd
+#   tags: dayu_config
+#   copy:
+#     src: "{{ install_dayu_config_path }}/dayu-confs/rg"
+#     dest: /bin/rg
+#     mode: '0111'
+#     remote_src: yes
+
+- name: Copy rigger cache
+  tags: dayu_config
+  command:
+    cmd: "sh setup.sh"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs"
+
+
+- name: Copy xinghai Config
+  tags: dayu_config
+  copy:
+    src: "/tmp/current.json"
+    dest: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/current.json"
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: Display the xh JSON file content
+  tags: dayu_config
+  shell: "cat {{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/current.json"
+  register: result
+
+- name: save the Json data to a Variable as a Fact
+  tags: dayu_config
+  set_fact:
+    jsondata: "{{ result.stdout | from_json }}"
+
+- name: show es host
+  tags: dayu_config
+  set_fact:
+    es_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`ES`].components"
+    jmesquery1: "[? name==`QES`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+  when: dayu_mode == "all" or dayu_mode == "core"
+
+- name: defend es host
+  tags: dayu_config
+  set_fact:
+    es_hosts: "{{hosts}}"
+  vars:
+    hosts: []
+  when: dayu_mode == "gateway"
+
+- debug: 
+    msg: "es_hosts is {{ es_hosts }}"
+
+- name: show ck host
+  tags: dayu_config
+  set_fact:
+    ck_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`RAPTOR`].components"
+    jmesquery1: "[? name==`RAPTOR_SERVER`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+  when: dayu_mode == "all" or dayu_mode == "core"
+
+- name: show ck host
+  tags: dayu_config
+  set_fact:
+    ck_hosts: "{{hosts}}"
+  vars:
+    hosts: []
+  when: dayu_mode == "gateway"
+
+- debug: 
+    msg: "ck_hosts is {{ ck_hosts }}"
+
+- name: show kafka host
+  tags: dayu_config
+  set_fact:
+    kafka_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`KAFKA`].components"
+    jmesquery1: "[? name==`QKAFKA`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+
+- debug: 
+    msg: "kafka_hosts is {{ kafka_hosts }}"
+
+- name: show zk host
+  tags: dayu_config
+  set_fact:
+    zk_hosts: "{{hosts}}"
+  vars:
+    jmesquery: "service[? name==`ZOOKEEPER`].components"
+    jmesquery1: "[? name==`ZOOKEEPER_SERVER`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    hosts: "{{var2[0]}}"
+
+- debug: 
+    msg: "zk_hosts is {{ zk_hosts }}"
+
+- name: config dayu cluster.ini
+  tags: dayu_config
+  template:
+    src: templates/cluster.ini.j2
+    dest: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/cluster.ini"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    #remote_src: yes
+
+- name: config dayu values.yaml
+  tags: dayu_config
+  template:
+    src: templates/values.yaml.j2
+    dest: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/values.yaml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    #remote_src: yes
+
+
+- name: config dayu image_secret 
+  tags: dayu_config
+  template:
+    src: templates/image_secret.yml.j2
+    dest: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/image_secret.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    #remote_src: yes
+
+# - name: register hosts
+#   tags: dayu_config
+#   set_fact:
+#     dayu_hosts: "{{ groups.all | unique | list }}"
+
+- debug:
+    msg: "dayu_hosts is {{ansible_play_hosts}}"
+
+- name: config dayu hosts all ip and hostname
+  tags: dayu_config
+  lineinfile:
+    dest: "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/hosts"
+    regexp: '.*{{ item }}\s*$'
+    line: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }}"
+  with_items: "{{ ansible_play_hosts }}"
+  #remote_src: yes
+
+- name: put s3 for rg
+  shell: "./mc cp {{item}} minio/pubdownload"
+  args: 
+    chdir: "{{install_root_path}}/minio/bin"
+  with_items:
+    - "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/hosts"
+    - "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/cluster.ini"
+    - "{{ install_dayu_config_path }}/dayu-confs/configs/platform/env_{{ dayu_platform_suffix }}/values.yaml"
+    - "{{ install_dayu_config_path }}/dayu-confs/version.txt"
+    - "{{ install_dayu_config_path }}/dayu-confs/dayu_version.txt"
+  ignore_errors: true
+
+- name: RG pub coredns config
+  tags: dayu_config
+  command:
+    cmd: "rg -e {{dayu_env}} _coredns"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+  ignore_errors: true
+
+- name: reload coredns
+  tags: dayu_config
+  command:
+    cmd: "kubectl rollout restart deployment coredns -n kube-system"
+    chdir: "{{ install_dayu_config_path }}/dayu-confs/configs/"
+  ignore_errors: true

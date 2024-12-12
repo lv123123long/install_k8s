@@ -1,0 +1,11 @@
+---
+# handlers file for clickhouse_exporter
+- name: reload systemd
+  command: systemctl daemon-reload
+
+
+- name: restart exporter
+  systemd:
+    name: "{{app_name}}"
+    state: restarted
+  # when: redis_exporter_service_state != 'stopped'

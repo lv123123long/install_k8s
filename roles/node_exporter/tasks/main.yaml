@@ -1,0 +1,22 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: check node_exporter_dbup.service
+  shell: "systemctl status node_exporter_dbup.service"
+  register: svc_node
+  ignore_errors: true
+
+- name: Install node_exporter
+  command:
+    cmd: "./dbup_linux_amd64 prometheus install-node-exporter -d {{install_node_exporter_root}}"
+    chdir: /tmp/oasis/bin/
+  when: svc_node.rc != 0
+  ignore_errors: true

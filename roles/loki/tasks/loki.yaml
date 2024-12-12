@@ -1,0 +1,50 @@
+- name: Make loki dirs
+  file:
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    path: "{{role_root_path}}/{{item}}"
+  with_items:
+    - data/boltdb
+    - data/chunks
+    - etc/rules
+    - etc/rules-tmp
+    - bin
+
+- name: Unarchive loki
+  unarchive:
+    src: "files/{{ansible_machine}}/loki/loki-linux-amd64.zip"
+    dest: "{{role_root_path}}/bin"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name:  Config loki
+  template:
+    src: "loki-config.yaml.j2"
+    dest: "{{role_root_path}}/etc/loki-config.yaml"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  register: lokiconfig
+
+- name: Config systemd
+  template:
+    src: "loki.service.j2"
+    dest: "/etc/systemd/system/loki.service"
+  notify:
+    - reload systemd
+
+- name: daemon svc
+  shell: "sudo systemctl daemon-reload" 
+
+- name: Start loki
+  service:
+    name: loki
+    enabled: yes
+    state: started
+
+- name: Restart loki
+  service:
+    name: loki
+    enabled: yes
+    state: restarted
+  when: lokiconfig.changed

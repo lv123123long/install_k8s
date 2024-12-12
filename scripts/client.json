@@ -1,0 +1,18 @@
+{
+    "CN": "etcd client",
+    "hosts": [
+        ""
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "etcd client",
+            "L": "etcd client",
+            "ST": "etcd client"
+        }
+    ]
+}
+

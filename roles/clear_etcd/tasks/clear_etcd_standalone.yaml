@@ -1,0 +1,17 @@
+- name: stop etcd svc
+  service: name=etcd_{{ etcd_service_port }} state=stopped
+  ignore_errors: true
+
+- name: rm etcd svc
+  file:
+    path: /etc/systemd/system/etcd_{{ etcd_service_port }}.service
+    state: absent
+  ignore_errors: true
+- name: rm etcd data
+  file:
+    path: "{{ install_root_path }}/etcd"
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"

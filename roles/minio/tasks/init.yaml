@@ -1,0 +1,37 @@
+- name: Config minio
+  shell: "{{minio_install_root}}/bin/mc config host add minio http://{{inventory_hostname}}:{{minio_service_port}} {{minio_access_key}} {{minio_secret_key}}"
+  when: minio_init
+
+- name: Create bucket
+  when: minio_init
+  shell: "{{minio_install_root}}/bin/mc mb minio/{{ item }}"
+  ignore_errors: yes
+  with_items:
+    - "{{minio_default_bucket}}"
+    - noah
+    - uae
+    - sabre
+    - velero-dayu
+    - count
+
+- name: Set bucket policy
+  when: minio_init
+  shell: "{{minio_install_root}}/bin/mc policy set download minio/{{minio_default_bucket}}"
+
+- name: Create sts user
+  when: minio_init
+  shell: "{{minio_install_root}}/bin/mc admin user add minio {{minio_sts_access_key}} {{minio_sts_secret_key}}"
+
+- name: Set sts user permission
+  when: minio_init
+  shell: "{{minio_install_root}}/bin/mc admin policy set minio readwrite user={{minio_sts_access_key}}"
+
+- name: Copy bucket policy json file
+  when: minio_init
+  template: >
+    src=templates/minio.bucket.policy.json.j2
+    dest={{minio_install_root}}/etc/minio.bucket.policy.json
+
+- name: Set bucket policy - disable list
+  when: minio_init
+  shell: "{{minio_install_root}}/bin/mc policy set-json {{minio_install_root}}/etc/minio.bucket.policy.json minio/{{minio_default_bucket}}"

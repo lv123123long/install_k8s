@@ -1,0 +1,22 @@
+---
+# defaults file for clickhouse_exporter
+install_root_path: "/data01/s/services"
+install_app_path: "{{install_root_path}}/apps"
+install_etc_path: "{{install_root_path}}/etc"
+install_log_path: "{{install_root_path}}/logs"
+install_data_path: "{{install_root_path}}/data"
+install_run_path: "{{install_root_path}}/run"
+install_tmp_path: "{{install_root_path}}/tmp"
+app_group: "bsafe"
+app_user: "bsafe"
+app_name: "clickhouse_exporter"
+exporter_dir: "{{install_data_path}}/exporter/apps"
+exporter_port: "9660"
+enableAuth: True
+endpoint_user: "admin"
+endpoint_password: "Qianxin@202o"
+clickhouse_monitor_uri: "http://darwin01v.tqten.zzt.qianxin-inc.cn:8123"
+exporter_users: "prometheus"
+exporter_pwd: "$2y$10$KgxjkzNvMBODTkJRot230.VAGc3ZOmCjyXpGzXOkg9OU2uMZndY1S%"
+exporter_password_desc: "QaxMo9527."
+exporter_ssl_dir: "/etc/exporter_base/ssl"

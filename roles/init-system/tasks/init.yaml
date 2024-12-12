@@ -1,0 +1,240 @@
+- name: Disable SELinux
+  selinux: >
+    state=disabled
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+- name: Disable Firewalld
+  service:
+    name: "firewalld"
+    enabled: no
+    state: stopped
+  ignore_errors: yes
+
+- name: Set limits
+  pam_limits:
+    backup: yes
+    dest: "/etc/security/limits.d/99-limits.conf"
+    limit_type: "-"
+    domain: "*"
+    limit_item: "{{item.type}}"
+    value: "{{item.value}}"
+  with_items:
+    - type: "nofile"
+      value: "655360"
+
+- name: Create app group
+  group:
+    name: "{{app_group}}"
+    system: yes
+    state: present
+
+- name: Create app user
+  user:
+    name: "{{app_user}}"
+    group: "{{app_group}}"
+    system: yes
+    state: present
+
+- name: Create app folders
+  file:
+    mode: 0755
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    state: directory
+    path: "{{item}}"
+  loop:
+    - "{{install_app_path}}"
+    - "{{install_etc_path}}"
+    - "{{install_log_path}}"
+    - "{{install_data_path}}"
+    - "{{install_run_path}}"
+
+- name: Create tmp folders
+  file:
+    mode: 1755
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    state: directory
+    path: "{{item}}"
+  loop:
+    - "{{install_tmp_path}}"
+    - "{{install_tmp_path}}/app"
+
+- name: Modprobe enable 1
+  modprobe:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - "br_netfilter"
+    - "nf_conntrack_netlink"
+
+- name: Modprobe enable 2
+  become: yes
+  shell: 
+    cmd: |
+      cat > /etc/sysconfig/modules/{{item}}.modules <<EOF
+      /sbin/modprobe {{item}}
+      EOF
+  with_items:
+    - "br_netfilter"
+    - "nf_conntrack_netlink"
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+- name: Modprobe enable 3
+  become: yes
+  shell: "chmod +x /etc/sysconfig/modules/{{item}}.modules"
+  with_items:
+    - "br_netfilter"
+    - "nf_conntrack_netlink"
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+- name: Modprobe enable ubuntu
+  become: yes
+  shell: "echo {{ item }} > /etc/modules-load.d/{{ item }}.conf"
+  with_items:
+    - "br_netfilter"
+    - "nf_conntrack_netlink"
+  when:
+  - ansible_distribution == "Ubuntu"
+  - ansible_distribution_major_version == "22"
+
+- name: Set sysctl
+  tags:
+    - sysctl
+  sysctl: >
+    name="{{item.name}}"
+    value="{{item.value}}"
+    state=present
+    sysctl_set=yes
+  with_items:
+    - { name: 'net.core.rmem_default', value: '524280'}
+    - { name: 'net.ipv4.udp_rmem_min', value: '10240'}
+    - { name: 'fs.inotify.max_user_instances', value: '16384'}
+    - { name: 'fs.inotify.max_user_watches', value: '524288'}
+    - { name: 'fs.inotify.max_queued_events', value: '16384'}
+    - { name: 'net.ipv4.ip_local_port_range', value: '2048 64000'}
+    - { name: 'net.ipv4.conf.all.rp_filter', value: '0'}
+    - { name: 'net.ipv4.tcp_timestamps', value: '0'}
+    - { name: 'net.ipv4.ip_forward', value: '1'}
+    - { name: 'net.ipv4.tcp_tw_reuse', value: '1'}
+    - { name: 'net.ipv4.tcp_tw_recycle', value: '1'}
+    - { name: 'net.ipv4.ip_local_reserved_ports', value: '{{reserved_ports}}'}
+    #- { name: 'net.nf_conntrack_max', value: '4194304'}
+    #- { name: 'net.bridge.bridge-nf-call-iptables', value: '1'}
+    #- { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1'}
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+- name: Ubuntu Set sysctl
+  tags:
+    - sysctl
+  sysctl: >
+    name="{{item.name}}"
+    value="{{item.value}}"
+    state=present
+    sysctl_set=yes
+  with_items:
+    - { name: 'net.ipv4.tcp_mem', value: '769320 1025761 1538640'}
+    - { name: 'net.ipv4.tcp_syncookies', value: '1'}
+    - { name: 'net.ipv4.tcp_window_scaling', value: '1'}
+    - { name: 'net.ipv4.udp_rmem_min', value: '10240'}
+    - { name: 'net.core.optmem_max', value: '81920'}
+    - { name: 'net.core.wmem_default', value: '8388608'}
+    - { name: 'net.core.wmem_max', value: '16777216'}
+    - { name: 'net.core.rmem_default', value: '524280'}
+    - { name: 'net.core.rmem_max', value: '16777216'}
+    - { name: 'net.ipv4.tcp_max_syn_backlog', value: '1020000'}
+    - { name: 'net.core.netdev_max_backlog', value: '862144'}
+    - { name: 'net.core.somaxconn', value: '262144'}
+    - { name: 'net.ipv4.tcp_max_orphans', value: '327680'}
+    - { name: 'net.ipv4.tcp_timestamps', value: '0'}
+    - { name: 'net.ipv4.tcp_synack_retries', value: '1'}
+    - { name: 'net.ipv4.tcp_syn_retries', value: '1'}
+    - { name: 'net.ipv4.tcp_tw_reuse', value: '1'}
+    - { name: 'net.ipv4.ip_local_port_range', value: '2048 64000'}
+    - { name: 'fs.inotify.max_user_instances', value: '16384'}
+    - { name: 'fs.inotify.max_user_watches', value: '524288'}
+    - { name: 'fs.inotify.max_queued_events', value: '16384'}
+    - { name: 'fs.file-max', value: '655350'}
+    - { name: 'net.ipv4.conf.all.rp_filter', value: '0'}
+    - { name: 'net.ipv4.ip_forward', value: '1'}
+    - { name: 'net.ipv4.tcp_tw_reuse', value: '1'}
+    - { name: 'net.ipv6.conf.all.disable_ipv6', value: '1'}
+    - { name: 'net.ipv6.conf.default.disable_ipv6', value: '1'}
+    - { name: 'net.ipv6.conf.lo.disable_ipv6', value: '1'}
+    - { name: 'net.ipv4.ip_local_reserved_ports', value: '{{reserved_ports}}'}
+  when:
+  - ansible_distribution == "Ubuntu"
+  - ansible_distribution_major_version == "22"
+
+- name: reload settings from all system configuration files
+  shell: sysctl --system
+
+- name: cp bin
+  copy:
+    src: "files/{{ansible_machine}}/tools/bin/{{item}}"
+    dest: /usr/bin/
+    mode: 0755
+  with_items:
+    - clickhouse-backup
+    - restic
+    - velero
+    - restic-dy.sh
+
+- name: mkdir back dir 
+  file:
+    path: "/usr/local/dayu_file_dir_bak/"
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: cp bin tar
+  copy:
+    src: files/{{ansible_machine}}/tools/bag/
+    dest: /usr/local/dayu_file_dir_bak/
+
+- name: uninstall wsssr
+  shell: "echo y | /usr/local/wsssr_defence_agent/uninstall"
+  ignore_errors: true
+
+- name: cp expect
+  copy:
+    src: "files/{{ansible_machine}}/expect/expect.tar.gz"
+    dest: /tmp
+    mode: 0755
+
+- name: unzip expect
+  shell: "tar -xvf /tmp/expect.tar.gz -C /tmp/"
+
+- name: install expect CentOS
+  shell: "yum localinstall -y *.rpm"
+  args:
+    chdir: /tmp/expect
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+- name: install expect Ubuntu
+  shell: "dpkg -i *.deb"
+  args:
+    chdir: /tmp/expect
+  when:
+  - ansible_distribution == "Ubuntu"
+  - ansible_distribution_major_version == "22"
+
+- name: touch test init file
+  file: 
+    state: touch
+    path: "{{install_root_path}}/testinit"
+    owner: bsafe
+
+- name: time to init file 
+  shell: "echo `date` >> {{install_root_path}}/testinit"
+  ignore_errors: true

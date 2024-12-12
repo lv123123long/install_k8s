@@ -1,0 +1,5 @@
+- name: etcd type standalone
+  tags: [clear_etcd]
+ # when: etcd_group_length|int == 1
+  include_tasks: "clear_etcd_standalone.yaml"
+

@@ -1,0 +1,49 @@
+- name: Define  mode
+  set_fact:
+    mode: "pseudo"
+    use_dbup: true
+  when: groups["redis"]|length == 1 and redis_pseudo_mode == "true"
+
+- name: Define standalone mode
+  set_fact:
+    mode: "standalone"
+    use_dbup: true
+  when: groups["redis"]|length == 1 and redis_pseudo_mode == "false"
+
+- name: Define master-slave mode
+  set_fact:
+    mode: "master-slave"
+    use_dbup: true
+  when: groups["redis"]|length == 2
+
+- name: Define cluster mode
+  set_fact:
+    mode: "cluster"
+    use_dbup: true
+  when: groups["redis"]|length > 2
+
+- name: Display mode
+  debug:
+    msg: "mode: {{mode}}, use_dbup: {{use_dbup}}"
+
+- name: Install pseudo redis
+  include_tasks: "dbup_pseudo.yaml"
+  when: mode == "pseudo" and use_dbup
+
+- name: Install standalone redis
+  include_tasks: "dbup_standalone.yaml"
+  when: mode == "standalone" and use_dbup
+  run_once: true
+
+- name: Install master-slave redis
+  include_tasks: "dbup_cluster.yaml"
+  when: mode == "master-slave" and use_dbup
+
+- name: Install rpm redis-cluster
+  include_tasks: "cluster.yaml"
+  when: mode == "cluster" and use_dbup == False
+
+- name: Install dbup redis-cluster
+  include_tasks: "dbup_real_cluster.yaml"
+  when: mode == "cluster" and use_dbup
+

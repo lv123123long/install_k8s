@@ -1,0 +1,127 @@
+- name: Create Ck dir
+  tags: clean_drmo
+  file:
+    path: "{{ install_ck_path }}"
+    state: directory
+
+
+- name: Install Ck Client
+  #delegate_to: localhost
+  copy: 
+    src: "files/{{ansible_machine}}/ck/clickhouse-client"
+    dest: "{{ install_ck_path }}"
+    mode: 0777
+
+- name: Define pg_master host group
+  add_host:
+    groups:
+      - pg_master      
+    name: "{{item}}"
+  when: hostvars[item]['pg_is_master'] == true
+  loop: "{{groups['pg']}}"
+
+- name: Copy xinghai Config
+  tags: dayu_config
+  copy:
+    src: "/tmp/current.json"
+    dest: "{{ install_ck_path }}/current.json"
+    owner: "root"
+    group: "root"
+    mode: 0755
+
+- name: Display the xh JSON file content
+  tags: dayu_config
+  shell: "cat {{ install_ck_path }}/current.json"
+  register: result
+
+- name: save the Json data to a Variable as a Fact
+  tags: dayu_config
+  set_fact:
+    jsondata: "{{ result.stdout | from_json }}"
+
+- name: set ck host
+  tags: dayu_config
+  set_fact:
+    ck_hosts: "{{res_hosts}}"
+  vars:
+    jmesquery: "service[? name==`RAPTOR`].components"
+    jmesquery1: "[? name==`RAPTOR_SERVER`].hostname"
+    var1: "{{jsondata | json_query(jmesquery)}}"
+    var2: "{{var1[0] |json_query(jmesquery1) }}"
+    res_hosts: "{{var2[0]}}"
+
+- name: unzip ck dwd data #prepare ck dwd data 2 
+  tags: xuanji
+  shell:
+    cmd: gzip -dcf "{{ lookup('env', 'PWD') }}/files/{{ ansible_machine }}/dayu-config/{{ item }}" > "{{ install_ck_path }}/{{ item[:-3] }}"
+    #chdir: "files/{{ansible_machine}}/dayu-config"
+  with_items:
+    - dwd_knowledge_common_vuln.CSVWithNames.gz
+    - dwd_knowledge_ip2geo.CSVWithNames.gz
+    - dwd_knowledge_ip2geo_merge.CSVWithNames.gz
+    - dwd_knowledge_nox_vuln_rating.CSVWithNames.gz
+    - dwd_knowledge_nox_vuln_residence.CSVWithNames.gz
+    - dwd_knowledge_qvd_vuln.CSVWithNames.gz
+    - dwd_knowledge_vuln_cpe.CSVWithNames.gz
+
+- name: init xuanji ck database
+  tags: xuanji
+  shell: 
+    cmd: ./clickhouse-client --port 29010 -u admin  --host "{{ck_hosts[0]}}"  --password Dly9DvXcAT --max_insert_block_size 50000 -q "insert into xuanji_dwd.{{item}} format CSVWithNames" < {{item}}.CSVWithNames
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - dwd_knowledge_common_vuln
+    - dwd_knowledge_ip2geo
+    - dwd_knowledge_ip2geo_merge
+    - dwd_knowledge_nox_vuln_rating
+    - dwd_knowledge_nox_vuln_residence
+    - dwd_knowledge_qvd_vuln
+    - dwd_knowledge_vuln_cpe
+
+- name: mkdir xuanji pg qsl dir
+  tags: xuanji
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  file:
+    path: "{{ install_ck_path }}"
+    state: directory
+
+- name: copy xuanji pg database sql
+  tags: xuanji
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  copy:
+    src: files/{{ansible_machine}}/dayu-config/{{item}}
+    dest: "{{ install_ck_path }}"
+  with_items:
+    - drmo-data-version-pgsql.sql
+
+- name: config xuanji pg init shell
+  tags: dayu_config
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  template:
+    src: templates/init-pg.sh.j2
+    dest: "{{ install_ck_path }}/init-pg.sh"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: do xuanji pg database init sql
+  tags: xuanji
+  delegate_to: "{{ groups['pg_master'][0] }}"
+  command:
+    cmd: "sh init-pg.sh {{item}}"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - drmo-data-version-pgsql.sql
+
+- name: clean xuanji data
+  tags: xuanji
+  shell: 
+    cmd: "rm -rf {{item}}.*"
+    chdir: "{{ install_ck_path }}"
+  with_items:
+    - dwd_knowledge_common_vuln
+    - dwd_knowledge_ip2geo
+    - dwd_knowledge_ip2geo_merge
+    - dwd_knowledge_nox_vuln_rating
+    - dwd_knowledge_nox_vuln_residence
+    - dwd_knowledge_qvd_vuln
+    - dwd_knowledge_vuln_cpe

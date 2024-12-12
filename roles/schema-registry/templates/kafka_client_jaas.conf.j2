@@ -1,0 +1,19 @@
+KafkaServer {
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username="{{kafka_admin_user|default("admin")}}"
+    password="{{kafka_admin_password|default("admin")}}"
+    user_{{kafka_user|default("kafka")}}="{{kafka_password|default("kfkpasswd")}}";
+};
+
+Client {
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username="{{zookeeper_user|default("zk")}}"
+    password="{{zookeeper_password|default("zkpasswd")}}";
+};
+
+KafkaClient {
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        serviceName="kafka"
+        username="{{kafka_user|default("kafka")}}"
+        password="{{kafka_password|default("kfkpasswd")}}";
+};

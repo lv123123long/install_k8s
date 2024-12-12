@@ -1,0 +1,25 @@
+- name: Try vars from other roles depends on me
+  debug:
+    msg: "{{role_root_path}}"
+
+- name: Create jdk install path
+  file:
+    state: directory
+    path: "{{role_root_path}}/jdk"
+
+- name: Unarchive jdk to install root
+  unarchive:
+    copy: yes
+    src: files/{{ansible_machine}}/jdk/jdk-8u281-linux-x64.tar.gz
+    dest: "{{role_root_path}}/jdk"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+
+- name: Create link
+  file:
+    state: link
+    src: "{{role_root_path}}/jdk/jdk1.8.0_281"
+    dest: "{{role_root_path}}/jdk/jdk"
+
+#- name: Update bin
+#  command: "alternatives --install /usr/bin/java java {{ install_app_path }}/jdk/jdk/bin/java 1"

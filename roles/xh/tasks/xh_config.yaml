@@ -1,0 +1,8 @@
+- name: change xh root size 
+  tags: xh_single
+  replace:
+    dest: "{{ xh_work_dir }}/BigManager/bin/preCheck.sh"
+    regexp: "1-500"
+    replace: "1-{{ xh_root_size }}"
+    backup: yes
+

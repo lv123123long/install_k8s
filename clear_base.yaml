@@ -1,0 +1,79 @@
+---
+
+- hosts: redis
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_redis
+
+  roles:
+    - role: clear_redis
+    - role: clear_redis_exporter
+
+- hosts: redisgraph
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_redisgraph
+
+  roles:
+    - role: clear_redisgraph
+    - role: clear_redisgraph_exporter
+
+- hosts: pg
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_pg
+
+  roles:
+    - role: clear_pg
+    - role: clear_pg_exporter
+
+- hosts: mongo
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_mongo
+
+  roles:
+    - role: clear_mongo
+    - role: clear_mongo_exporter
+
+
+- hosts: minio
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_minio
+
+  roles:
+    - role: clear_minio
+
+- hosts: loki
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_loki
+
+  roles:
+    - role: clear_loki
+
+- hosts: xh
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_xh
+
+  roles:
+    - role: clear_xh
+
+- hosts: k8s
+  gather_facts: yes
+  become: yes
+  tags:
+    - clear_k8s
+
+  roles:
+    - role:  clear_etcd
+    - role:  clear_k8s

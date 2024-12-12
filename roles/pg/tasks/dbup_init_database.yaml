@@ -1,0 +1,17 @@
+- name: Create skywalking database
+  tags:
+    - skywalking
+  command:
+    cmd: "/tmp/oasis-linux-amd64/bin/dbup pgsql database create -u postgres -P {{pg_service_port}} --dbname skywalking -p '{{pg_admin_password}}' -H 127.0.0.1"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: pg_is_master == true
+  ignore_errors: true
+
+- name: Grant pguser for skywalking database
+  tags:
+    - skywalking
+  command:
+    cmd: "/tmp/oasis-linux-amd64/bin/dbup pgsql user grant --dbname skywalking -u postgres -P {{pg_service_port}} --user {{pg_service_user|default('pguser')}} -p '{{pg_admin_password}}' -a 0.0.0.0/0 -H 127.0.0.1"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: pg_is_master == true
+

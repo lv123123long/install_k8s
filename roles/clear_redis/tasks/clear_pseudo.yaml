@@ -1,0 +1,61 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: uninstall use dbup 
+  command:
+    cmd: "./dbup redis uninstall --dir {{ redis_install_root }}/{{item}} -P {{item}}  -y"
+    chdir: /tmp/oasis-linux-amd64/bin
+  with_items:
+    - "{{redis_standalone_port}}"
+    - "{{redis_standalone_pseude_port1}}"
+    - "{{redis_standalone_pseude_port2}}"
+  ignore_errors: true
+
+- name: stop redis svc 
+  service: name=redis{{item}} state=stopped
+  with_items:
+    - "{{redis_standalone_port}}"
+    - "{{redis_standalone_pseude_port1}}"
+    - "{{redis_standalone_pseude_port2}}"
+    - "6379"
+  ignore_errors: true
+
+- name: rm redis svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "/usr/lib/systemd/system/redis{{redis_standalone_port}}.service"
+    - "/usr/lib/systemd/system/redis{{redis_standalone_pseude_port1}}.service"
+    - "/usr/lib/systemd/system/redis{{redis_standalone_pseude_port2}}.service"
+    - /usr/lib/systemd/system/redis6379.service
+
+- name: bak redis data
+  command:
+    cmd: "sudo mv {{redis_install_root}} {{redis_install_root}}_redisbak"
+  ignore_errors: true
+
+- name: rm redis data
+  file:
+  #  path: /data01/s/services/data/redis
+    path: "{{ item }}" 
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "{{redis_install_root}}"   
+    - "{{redis_install_root}}_redisbak"   
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

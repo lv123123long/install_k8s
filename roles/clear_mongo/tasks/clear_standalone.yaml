@@ -1,0 +1,26 @@
+- name: stop mongo svc
+  tags: clear_mongo
+  service: name=mongodb{{mongo_service_port}} state=stopped
+  ignore_errors: true
+
+- name: rm mongo svc
+  tags: clear_mongo
+  file:
+    path: /usr/lib/systemd/system/mongodb{{mongo_service_port}}.service
+    state: absent
+
+  ignore_errors: true
+- name: rm mongo data
+  tags: clear_mongo
+  file:
+    path: "{{mongo_install_root}}"
+    state: absent
+  ignore_errors: true
+
+- name: daemon svc
+  tags: clear_mongo
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  tags: clear_mongo
+  shell: "systemctl reset-failed"

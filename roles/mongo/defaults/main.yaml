@@ -1,0 +1,2 @@
+#mongo_install_root: "{{install_root_path}}/mongo"
+#mongo_service_port: 27017

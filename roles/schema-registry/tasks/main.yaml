@@ -1,0 +1,60 @@
+- name: Create confluent group
+  group: >
+    name={{schema_registry_group|default("bsafe")}}
+    state=present
+
+- name: Create confluent user
+  user: >
+    name={{schema_registry_user|default("bsafe")}}
+    group={{schema_registry_group|default("bsafe")}}
+    state=present
+
+- name: Create log dir
+  file: >
+    state=directory
+    path={{schema_registry_log_dir}}
+    owner={{schema_registry_user|default("bsafe")}}
+    group={{schema_registry_group|default("bsafe")}}
+
+- name: Create root dir
+  file: >
+    state=directory
+    path={{schema_registry_root}}
+    owner={{schema_registry_user|default("bsafe")}}
+    group={{schema_registry_group|default("bsafe")}}
+
+- name: Decompress tarfile
+  unarchive: >
+    copy=true
+    src=files/{{ ansible_machine }}/schema-registry/confluent-{{schema_registry_version}}.tar.gz
+    dest={{schema_registry_root}}
+
+- name: linking application folder
+  file: >
+    state=link
+    src={{schema_registry_root}}/confluent-{{schema_registry_version}}
+    path={{schema_registry_root}}/confluent
+
+- name: Setup schema registry kafka auth info
+  template: >
+    src=templates/kafka_client_jaas.conf.j2
+    dest={{schema_registry_root}}/confluent/etc/schema-registry/kafka_client_jaas.conf
+
+- name: Configure schema registry
+  template: >
+    src=templates/schema-registry.properties.j2
+    dest={{schema_registry_root}}/confluent/etc/schema-registry/schema-registry.properties
+
+- name: Configure schema registry systemd
+  tags: [systemd]
+  template: >
+    src=templates/schema-registry.service.j2
+    dest=/etc/systemd/system/schema-registry.service
+
+- name: Enable schema registry
+  tags: [systemd]
+  systemd: >
+    enabled=yes
+    state=restarted
+    name=schema-registry
+    daemon_reload=yes

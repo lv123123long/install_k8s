@@ -1,0 +1,7 @@
+iptables_allowed_tcp_ports: '["22","80","443","8443","8088","9092","9094"]'
+iptables_allowed_udp_ports: '["53"]'
+iptables_deny_tcp_ports: ''
+iptables_deny_udp_ports: ''
+iptables_additional_rules: ''
+iptables_action: 'insert'
+iptables_state: 'present'

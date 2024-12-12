@@ -1,0 +1,71 @@
+- set_fact:
+    xh_single: true
+    xh_install_mode: single
+  when: (xh_group_length|int == 1) and bm_is_master == "true"
+
+- set_fact:
+    xh_cluster: true
+    xh_install_mode: cluster
+  when: (xh_group_length|int > 1) and bm_is_master == "true"
+
+- debug:
+    msg: xh mode is single
+  when: (xh_group_length|int == 1) and bm_is_master == "true"
+
+- debug:
+    msg: xh mode is cluster
+  when: (xh_group_length|int > 1) and bm_is_master == "true"
+
+- name: Install xh 
+  debug:
+    msg: "install xh {{xh_install_mode}} : path to {{xh_work_dir}}"
+  when: bm_is_master == "true"
+
+- name: check xh status
+  shell: "curl {{ inventory_hostname }}:8088"
+  register: svc_xh
+  when: bm_is_master == "true"
+  ignore_errors: True
+
+- debug: var=svc_xh.stdout_lines
+
+- name: echo xh info
+  debug: 
+    msg: "xh test url: {{ inventory_hostname }}:8088"
+  when: bm_is_master == "true"
+
+- name: echo xh status
+  debug: 
+    msg: "xh svc ok"
+  when: bm_is_master == "true" and svc_xh.rc == 0
+
+- name: echo xh status
+  debug: 
+    msg: "xh svc not ok"
+  when: bm_is_master == "true" and svc_xh.rc != 0
+  
+- include_tasks: "xh_install.yaml"
+  when: bm_is_master == "true" and svc_xh.rc != 0
+
+- name: fetch xinghai config to localhost
+  fetch:
+    src: "{{ xh_work_dir }}/BigManager/bin/bm_template_deploy/template/current.json"
+    dest: "/tmp/current.json"
+    flat: yes
+  when: bm_is_master == "true"
+
+- name: close xh ntpd
+  shell: "systemctl stop xh-ntpd && systemctl disable xh-ntpd"
+  when: bm_is_master != "true"
+  ignore_errors: True
+
+- name: Fix Ubuntu sysctl
+  lineinfile:
+    dest: /etc/sysctl.conf
+    regex: '^net\.ipv4\.tcp_tw_recycle'
+    state: absent
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+  ignore_errors: True
+

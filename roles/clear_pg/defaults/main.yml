@@ -1,0 +1,11 @@
+#pg_data_dir: "{{install_data_path}}/pgsql/12/data"
+role_root_path: "{{install_root_path}}/pgsql"
+pg_data_dir: "{{role_root_path}}"
+pg_user: postgres
+pg_group: postgres
+replication_user: replicator
+replication_password: "repLca7or@101"
+has_skywalking: false
+
+pg_group_length: "{{groups['pg']|length}}"
+pg_admin_password: "A7GaKXT3JEY3_Qrh"

@@ -1,0 +1,21 @@
+ssh-config:
+  port: {{ansible_port}}
+  username: "{{ansible_user}}"
+  password: "{{ansible_ssh_pass}}"
+redis-config:
+  password: {{redis_password}}
+  memory: {{redis_max_memory }}
+  module:
+  maxmemory-policy: allkeys-lru
+master:
+{% for host in ansible_play_hosts_all %}
+  - host: {{hostvars[host]["ansible_facts"]["default_ipv4"]["address"]}}
+    port: {{ redis_standalone_port }}
+    dir: {{ redis_install_root }}/{{redis_standalone_port}}
+{% endfor %}
+slave:
+{% for host in ansible_play_hosts_all %}
+  - host: {{hostvars[host]["ansible_facts"]["default_ipv4"]["address"]}}
+    port: {{ redis_standalone_pseude_port1 }}
+    dir: {{ redis_install_root }}/{{redis_standalone_pseude_port1}}
+{% endfor %}

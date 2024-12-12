@@ -1,0 +1,9 @@
+server:
+  port: {{skywalking_service_port}}
+
+collector:
+  path: /graphql
+  ribbon:
+    ReadTimeout: 10000
+    # Point to all backend's restHost:restPort, split by ,
+    listOfServers: 127.0.0.1:12800

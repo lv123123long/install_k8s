@@ -1,0 +1,1 @@
+install_redis_exporter_root: "{{install_data_path}}/exporter/redis_exporter"

@@ -1,0 +1,27 @@
+- name: Install iptables
+  debug:
+    msg: "now install iptables ..."
+
+- name: check iptables  status
+  shell: "sudo systemctl status iptables"
+  register: svc_iptables
+  ignore_errors: True
+
+- name: echo iptables status
+  debug: 
+    msg: "iptables svc ok"
+  when: svc_iptables.rc == 0
+
+- name: echo iptables status
+  debug: 
+    msg: "iptables svc not ok"
+  when: svc_iptables.rc != 0
+
+- name: install iptables 
+  when: svc_iptables.rc != 0
+  include: "install_iptables.yaml"
+
+- name: init iptables 
+  include: "init_iptables.yaml"
+
+

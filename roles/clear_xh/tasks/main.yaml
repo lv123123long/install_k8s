@@ -1,0 +1,14 @@
+- name: Install xh info 
+  debug:
+    msg: "install xh {{xh_install_mode}} : path to {{xh_work_dir}}"
+
+- name: check xh status
+  shell: "curl {{ inventory_hostname }}:8088"
+  register: svc_xh
+  when: bm_is_master == "true"
+  ignore_errors: True
+
+- name: clear xh 
+  include: "clear_xh.yaml"
+
+

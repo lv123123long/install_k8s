@@ -1,0 +1,42 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+
+- name: uninstall use dbup step 
+  command:
+    cmd: "./dbup redis uninstall --dir {{redisgraph_install_root}}/{{redisgraph_standalone_port}} -P {{redisgraph_standalone_port}}  -y"
+    chdir: /tmp/oasis-linux-amd64/bin
+  ignore_errors: true
+
+- name: stop redisgraph svc step
+  service: "name=redis{{redisgraph_standalone_port}} state=stopped"
+  ignore_errors: true
+
+- name: rm redisgraph svc
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "/usr/lib/systemd/system/redis{{redisgraph_standalone_port}}.service"
+
+- name: rm redisgraph data
+  file:
+    path: "{{ item }}" 
+    state: absent
+  ignore_errors: true
+  with_items:
+    - "{{redisgraph_install_root}}"   
+
+- name: daemon svc
+  shell: "systemctl daemon-reload"
+
+- name: reset failed svc
+  shell: "systemctl reset-failed"

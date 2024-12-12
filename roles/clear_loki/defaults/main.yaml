@@ -1,0 +1,1 @@
+role_root_path: "{{install_root_path}}/loki"

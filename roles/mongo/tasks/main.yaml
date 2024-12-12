@@ -1,0 +1,72 @@
+- name: Install libgomp 
+  include_tasks: "ssllib_install.yaml"
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version == "22"
+
+- name: Make install root dir
+  file:
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    path: "{{install_root_path}}"
+
+- name: Create require dirs
+  file:
+    state: directory
+    path: "{{item}}"
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  with_items:
+    - "{{mongo_install_root}}"
+
+- name: Make temp dir
+  file:
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+    path: "{{install_tmp_path}}"
+    mode: "1777"
+
+- name: Make install root dir
+  #delegate_to: localhost
+  file:
+    state: directory
+    path: "{{install_root_path}}"
+
+- name: Create require dirs
+  #delegate_to: localhost
+  file:
+    state: directory
+    path: "{{item}}"
+  with_items:
+    - "{{mongo_install_root}}"
+
+- name: Make temp dir
+  delegate_to: localhost
+  file:
+    state: directory
+    path: "{{install_tmp_path}}"
+    mode: "1777"
+
+- name: Define replica mode
+  set_fact:
+    mode: "replicaset"
+  when: ansible_play_hosts_all|length >= 3
+
+- name: Define standalone mode
+  set_fact:
+    mode: "standalone"
+  when: ansible_play_hosts_all|length == 1
+
+- name: Display mode
+  debug:
+    msg: "mode: {{mode}}"
+
+- name: Install replicaset
+  include_tasks: "dbup_replicaset.yaml"
+  when: mode == "replicaset"
+
+- name: Install standalone
+  include_tasks: "dbup_standalone.yaml"
+  when: mode == "standalone"

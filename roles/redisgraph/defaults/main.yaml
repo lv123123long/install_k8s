@@ -1,0 +1,10 @@
+redisgraph_install_root: "{{install_root_path}}/redisgraph"
+
+
+redisgraph_standalone_data_dir: "{{redisgraph_install_root}}/{{redisgraph_standalone_port}}"
+
+redisgraph_config_dir: "{{redisgraph_install_root}}/etc"
+redisgraph_cluster_data_dir: "{{redisgraph_install_root}}/data"
+redisgraph_cluster_run_dir: "{{redisgraph_install_root}}/run"
+redisgraph_cluster_log_dir: "{{redisgraph_install_root}}/log"
+

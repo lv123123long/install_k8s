@@ -1,0 +1,9 @@
+{%- for host in groups['zookeeper'] -%}
+  {%- if loop.length == 1 -%}
+    {{- loop.index -}}
+  {%- else -%}
+    {%- if host == inventory_hostname -%}
+      {{- loop.index -}}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}

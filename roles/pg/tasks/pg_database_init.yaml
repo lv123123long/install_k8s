@@ -1,0 +1,69 @@
+- name: create dayu pg database
+  tags:
+    - init_pgdb
+  command:
+    cmd: "/tmp/oasis-linux-amd64/bin/dbup pgsql database create --dbname {{ item }} -u postgres -P {{pg_service_port}}  -p '{{pg_admin_password}}' -H 127.0.0.1 --ignore"
+    chdir: /tmp/oasis-linux-amd64/bin
+  with_items:
+    - aquila
+    - bi
+    - bi_cache
+    - bi_local
+    - bisheng
+    - camunda
+    - cloud_query
+    - darwin_client
+    - datamonitor
+    - dayu
+    - doraemon
+    - grafana
+    - haina
+    - hairui
+    - hakkero
+    - jingwei
+    - knowledge
+    - leo
+    - system-audit
+    - mario
+    - megatron
+    - message
+    - notify
+    - powerjob_daily
+    - analysis-search
+    - scene
+    - sirius
+    - framework-data-permission
+    - skywalking
+    - system-manager
+    - tenma
+    - topo
+    - uae
+    - system-upgrade
+    - xuanji
+    - zeus
+    - tiangong
+    - tip
+    - tag
+    - system_backup
+    - system-monitor
+    - framework-message-center
+    - framework-data-permission
+    - HYPER
+    - interaction-response
+    - persona
+    - system-cascade
+    - system-ticket
+    - analysis-threat
+    - bigscreen
+    - system-back-agent
+    - search_meta_data
+    - noah
+    - asset_meta
+    - asset_operation
+
+- name: Grant postgres to all hosts
+  tags:
+    - init_pgdb
+  command:
+    cmd: "/tmp/oasis-linux-amd64/bin/dbup pgsql user grant --dbname all -u postgres -P {{pg_service_port}} --user postgres -p '{{pg_admin_password}}' -a 0.0.0.0/0 -H 127.0.0.1"
+    chdir: /tmp/oasis-linux-amd64/bin

@@ -1,0 +1,17 @@
+[Unit]
+Description = Apache Skywalking
+Wants =
+After = network.target
+
+[Service]
+Type=forking
+WorkingDirectory={{role_root_path}}/skywalking
+EnvironmentFile={{role_root_path}}/skywalking/config/oapServer.env
+Environment=JAVA_HOME={{role_root_path}}/jdk/jdk
+ExecStart={{role_root_path}}/skywalking/bin/startup.sh
+ExecStop=/usr/bin/pkill -f apache-skywalking-apm-bin-es7
+User={{app_user}}
+RestartSec = 5
+
+[Install]
+WantedBy = multi-user.target

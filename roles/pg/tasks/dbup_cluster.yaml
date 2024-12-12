@@ -1,0 +1,40 @@
+- name: Copy oasis
+  copy:
+    src: "files/{{ansible_machine}}/oasis/oasis-linux-amd64-{{dbup_version}}.tar.gz"
+    dest: /tmp/
+  when: pg_is_master == true
+
+- name: Unzip oasis
+  unarchive:
+    remote_src: yes
+    src: /tmp/oasis-linux-amd64-{{dbup_version}}.tar.gz
+    dest: /tmp
+  when: pg_is_master == true
+
+- name: Config dbup
+  tags: [template]
+  template:
+    src: templates/pgsql-cluster-deploy.conf.template
+    dest: /tmp/oasis-linux-amd64/config/pgsql-cluster-deploy.conf.template
+  when: pg_is_master == true
+
+- name: check pgsql
+  shell : "systemctl status postgres{{pg_service_port}}"
+  register: svc_pgsql
+  ignore_errors: True
+
+
+- name: Install pgsql
+  command:
+    cmd: "./dbup pgsql cluster-deploy -c ../config/pgsql-cluster-deploy.conf.template"
+    chdir: /tmp/oasis-linux-amd64/bin
+  when: svc_pgsql.rc != 0 and pg_is_master == true
+
+- name: Enable pgsql
+  systemd:
+    enabled: yes
+    state: restarted
+    name: "{{item}}"
+    daemon_reload: yes
+  with_items:
+    - "postgres{{pg_service_port}}"

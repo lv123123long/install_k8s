@@ -1,0 +1,8 @@
+---
+dependencies:
+  - role: security
+    generator:
+      - mongo_service_password
+    vars:
+      mongo_service_password: "{{hostvars[groups['mongo'][0]].mongo_service_password|default('GL6ZyiERr0oUA7l=_1')}}"
+

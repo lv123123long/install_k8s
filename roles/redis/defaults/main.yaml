@@ -1,0 +1,10 @@
+redis_install_root: "{{install_root_path}}/redis"
+
+
+redis_standalone_data_dir: "{{redis_install_root}}/{{redis_standalone_port}}"
+
+redis_config_dir: "{{redis_install_root}}/etc"
+redis_cluster_data_dir: "{{redis_install_root}}/data"
+redis_cluster_run_dir: "{{redis_install_root}}/run"
+redis_cluster_log_dir: "{{redis_install_root}}/log"
+

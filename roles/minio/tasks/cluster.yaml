@@ -1,0 +1,63 @@
+- name: Enable System CA Store
+  command: update-ca-trust enable
+  when:
+  - ansible_distribution == "CentOS"
+  - ansible_distribution_major_version == "7"
+
+#- name: Install ca cert
+#  copy:
+#    src: "files/{{ansible_machine}}/etcd/ssl/config/ca.pem"
+#    dest: "{{minio_install_root}}/etc/CAs/ca.pem"
+#    owner: "{{app_user}}"
+#    group: "{{app_group}}"
+#  notify:
+#    - reload system ca
+#
+#- name: Install etcd tls cert
+#  copy:
+#    src: "files/{{ansible_machine}}/etcd/ssl/config/client.pem"
+#    dest: "{{minio_etcd_client_cert}}"
+#    owner: "{{app_user}}"
+#    group: "{{app_group}}"
+#
+#- name: Install etcd tls cert key
+#  copy:
+#    src: "files/{{ansible_machine}}/etcd/ssl/config/client-key.pem"
+#    dest: "{{minio_etcd_client_cert_key}}"
+#    owner: "{{app_user}}"
+#    group: "{{app_group}}"
+
+- name: create pseudo minio dir
+  file:
+    path: "{{item}}"
+    state: directory
+    owner: "{{app_user}}"
+    group: "{{app_group}}"
+  with_items:
+    - "{{minio_data_dir}}/data/strip01"
+
+- name: Create minio config
+  template: >
+    src=templates/cluster-minio.env.j2
+    dest="{{minio_install_root}}/etc/minio.env"
+    mode=0600
+    owner={{app_user}}
+    group={{app_group}}
+  notify:
+    - restart minio
+
+- name: Create minio systemd config
+  template: >
+    src=templates/cluster-minio.service.j2
+    dest=/etc/systemd/system/minio.service
+
+- name: Start minio
+  systemd: >
+    name=minio
+    state=started
+    enabled=yes
+    daemon_reload=yes
+
+- name: Wait for minio initialized
+  wait_for: >
+    timeout=30

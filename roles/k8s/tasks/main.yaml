@@ -1,0 +1,63 @@
+- name: check etcd status
+  vars: 
+    EP: "{{ install_root_path }}/etcd/etcd_{{ etcd_service_port }}"
+    ca: "{{ EP }}/cert/ca.pem"
+    ct: "{{ EP }}/cert/client.pem"
+    k: "{{ EP }}/cert/client-key.pem"
+    ep: "https://{{ inventory_hostname }}:{{ etcd_service_port }}"
+  shell: 
+    cmd: "sudo ./etcdctl --cacert={{ca}} --cert={{ct}} --key={{k}} --endpoints={{ep}} endpoint status"
+    chdir: "{{ install_root_path }}/etcd/etcd_{{ etcd_service_port }}/bin"
+  register: etcd_status
+  when: inventory_hostname in groups['k8s_master']
+ 
+- name: echo etcd status
+  fail:
+    msg: "etcd service not ok, please check"
+  when: inventory_hostname in groups['k8s_master'] and etcd_status.rc != 0
+
+- name: echo etcd status
+  debug:
+    msg: "etcd service ok"
+  when: inventory_hostname in groups['k8s_master'] and etcd_status.rc == 0
+
+- name: check kubelet master status
+  # 瀚海云虚拟机不能同时进行过多的ssh连接
+  #delegate_to: "{{groups['k8s_master'][0]}}"
+  shell: "curl -k https://{{ ansible_default_ipv4.address }}:6443"
+  register: svc_master_k8s
+  ignore_errors: True
+  when: inventory_hostname in groups['k8s_master'] and etcd_status.rc == 0
+
+- include_tasks: master.yaml
+  tags:
+    - master
+  when: inventory_hostname in groups['k8s_master'] and etcd_status.rc == 0 and svc_master_k8s.rc != 0
+
+- include_tasks: slave.yaml
+  tags:
+    - slave
+    - kubelet
+  #when: inventory_hostname in groups['k8s_slave'] and groups['k8s_slave']|length > 1
+  when: inventory_hostname in groups['k8s_slave']
+  ignore_errors: true
+
+- name: Check local app image folder
+  tags:
+    - load-app-image
+  delegate_to: localhost
+  run_once: yes
+  find:
+    paths:
+      - "files/{{ansible_machine}}/app/images"
+  register: find_app_image_result
+
+- include_tasks: load-app-image.yaml
+  tags:
+    - load-app-image
+  when: find_app_image_result.matched > 0
+
+- include_tasks: ingress.yaml
+  tags:
+    - ingress
+  when: k8s_with_ingress is defined and k8s_with_ingress == "true" and inventory_hostname in groups['k8s_master']

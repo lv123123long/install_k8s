@@ -1,0 +1,4 @@
+role_root_path: "{{install_dayu_disk_path}}/loki"
+memory_limit: "7G"
+cpu_quota: "300%"
+block_io_weight: "1000"

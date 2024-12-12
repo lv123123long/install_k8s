@@ -1,0 +1,11 @@
+- name: Copy App Images
+  copy:
+    src: files/{{ansible_machine}}/app/images/
+    dest: /tmp/app/images/
+
+- name: Load App Images
+  shell: "for i in `ls`; do docker load -i $i; done"
+  args:
+    chdir: /tmp/app/images
+
+

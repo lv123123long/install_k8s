@@ -1,0 +1,27 @@
+- name: config redis
+  template: >
+    src=cluster/redis.conf.j2
+    dest={{redis_config_dir}}/redis_{{port}}.conf
+    mode=640
+    owner={{app_user}}
+    group={{app_group}}
+
+- name: Make db dir
+  file: >
+    state=directory
+    owner={{app_user}}
+    group={{app_group}}
+    path={{redis_cluster_data_dir}}/{{port}}
+
+- name: Config systemd
+  template:
+    src=cluster/redis.service.j2
+    dest=/etc/systemd/system/redis{{port}}.service
+    mode=644
+
+- name: Enable redis{{port}} systemd
+  systemd: >
+    daemon_reload=yes
+    enabled=yes
+    name=redis{{port}}
+    state=started

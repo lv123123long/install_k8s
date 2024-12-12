@@ -1,0 +1,70 @@
+- name: Create zk group
+  group: >
+    name={{zk_group|default(zk_user)}}
+    state=present
+
+- name: Create zk user
+  user: >
+    name={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+    state=present
+
+- name: Create zk root
+  file: >
+    state=directory
+    path={{zk_root}}
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+
+- name: Decompress zk tarball
+  unarchive: >
+    copy=true
+    src="files/{{ansible_machine}}/zookeeper/zookeeper-{{zk_version}}.tar.gz"
+    dest="{{zk_root}}"
+    dest={{zk_root}}
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+
+- name: Linking application folder
+  file: >
+    state=link
+    src="{{zk_root}}/zookeeper-{{zk_version}}"
+    path="{{zk_root}}/zookeeper"
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+
+- name: Install zookeeper systemd file
+  template: >
+    src=zookeeper.service.j2
+    dest="/etc/systemd/system/{{zk_service_name}}.service"
+
+- name: Create necessary folders
+  file: >
+    state=directory
+    path="{{item.folder}}"
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+  with_items:
+    - folder: "{{zk_log_dir}}"
+    - folder: "{{zk_data_dir}}"
+
+- name: Config zookeeper
+  template: >
+    src=zoo.cfg.j2
+    dest="{{zk_root}}/zookeeper/conf/zoo.cfg"
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+
+- name: Create zookeeper myid file
+  template: >
+    src=myid.j2
+    dest="{{zk_data_dir}}/myid"
+    owner={{zk_user}}
+    group={{zk_group|default(zk_user)}}
+- debug: var={{zk_service_name}} verbosity=0
+- name: Enable zookeeper systemd
+  systemd: >
+    daemon_reload=yes
+    enabled=yes
+    name="{{zk_service_name}}"
+    state=restarted

@@ -1,0 +1,36 @@
+- name: check init
+  stat: 
+    path: "{{install_root_path}}/testinit"
+  register: testinit_stat
+
+- name: echo init file stats
+  debug:
+    msg: "testinit file  exist"
+  when: testinit_stat.stat.exists == True
+
+- name: echo init file stats
+  debug:
+    msg: "root dir not exist, start init"
+  when: testinit_stat.stat.exists == False
+
+- include: init.yaml
+  when: testinit_stat.stat.exists == False
+
+#- name: check disk init
+#  stat:
+#    path: "{{install_dayu_disk_path}}/testinit"
+#  register: test_disk_init_stat
+#  when: dayu_disk != ""
+#
+#- name: echo disk init file stats
+#  debug:
+#    msg: "testinit file  exist"
+#  when: dayu_disk != "" and test_disk_init_stat.stat.exists == True 
+#
+#- name: echo disk init file stats
+#  debug:
+#    msg: "root dir not exist, start init"
+#  when: dayu_disk != "" and test_disk_init_stat.stat.exists == False
+#
+#- include: format_disk.yaml
+#  when: dayu_disk != "" and test_disk_init_stat.stat.exists == False
